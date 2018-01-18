@@ -15,4 +15,4 @@ All these features work for blueprint editor too:
 
 It also applys to general drag and drop actions:  
 ![5](Demo/asset.gif)
-![6](Demo/actor.gif)
+![6](Demo/ezgif.com-optimize.gif)
