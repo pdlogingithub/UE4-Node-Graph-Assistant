@@ -1,7 +1,7 @@
 # UE4-Multi-Dropping-Tool
 Some functionalities I put together for speeding up node graph creation,also for some general drag-drop actions.  
 
-Multi dropping:  
+Multi dropping,when "shift" is pressing will perform a drop action but keep drag action alive,each left click will perform a drop:  
 ![1](Demo/multi_drop.gif)  
 
 Drag and pan:  
