@@ -1,5 +1,4 @@
-# UE4-Node-Graph-Assistant 
-This plugin modifies editor's default behavior, allow you to create or edit node graphs like material or blueprint more quickly and more conveniently.  
+# UE4-Node-Graph-Assistant User Guid
 
 Right click to connect multiple nodes while dragging a connection wire.  
 ![1](right_click_multi_drop.gif)  
@@ -10,7 +9,7 @@ Drag and pan:
 Right click and drag while dragging a connection wire will pan the node graph.  
 ![3](drag_and_pan.gif)  
 
-Shift click on connected node pin will duplicate connection wire.
+Shift click on connected node pin will duplicate connection wire.  
 ![4](duplicate.gif)  
 
  Left click on connection wire will highlight it,click on empty space to remove highlight.  
@@ -19,3 +18,6 @@ Shift click on connected node pin will duplicate connection wire.
 Left click and drag on empty space while holding down alt will break all connection wires along its way.  
 ![6](break.gif)
 
+
+Tips:
+It's recommended that you go to editor preference window and set "Spling Hover Tolerance" to higher than 10 for better control.  
