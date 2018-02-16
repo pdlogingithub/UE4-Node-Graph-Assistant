@@ -1,6 +1,6 @@
 # UE4-Node-Graph-Assistant User Guid
 
-Right click to connect multiple nodes while dragging a connection wire.  
+Right click on pins to connect multiple nodes while dragging a connection wire.  
 ![1](right_click_multi_drop.gif)  
 
 Right click and drag while dragging a connection wire will pan the node graph.  
@@ -18,7 +18,7 @@ Shift click on connected node pin will duplicate connection wire.
  Left click on connection wire will highlight it,click on empty space to remove highlight.  
 ![5](highlight.gif)
 
-Left click and drag on empty space while holding down alt will break all connection wires along its way(note that this is a experimental feature,if you are dragging too fast,some connection wires may still connected).  
+Left click and drag on empty space while holding down alt will break all connection wires along its way(note that this is a experimental feature,if you are dragging too fast,some connection wires may still stay connected).  
 ![6](break.gif)
 
 
