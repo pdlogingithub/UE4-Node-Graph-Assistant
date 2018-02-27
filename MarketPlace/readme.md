@@ -6,7 +6,7 @@ Right click on pins to connect multiple nodes while dragging a connection wire.
 Right click and drag while dragging a connection wire will pan the node graph.  
 ![2](drag_and_pan.gif)  
 
-Click on pin to start free panning,zooming and dropping.  
+Click on pin to start free panning,zooming and dropping(without using keyboard).  
 ![7](003_click_multi_drop.gif)  
 
 Hold down shift while dragging a connection to start free panning,zooming and dropping.   
