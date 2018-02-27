@@ -1,4 +1,4 @@
-# UE4-Node-Graph-Assistant User Guid
+# UE4-Node-Graph-Assistant User Guide
 
 Right click on pins to connect multiple nodes while dragging a connection wire.  
 ![1](right_click_multi_drop.gif)  
