@@ -30,4 +30,4 @@ Will it support other platform and engine version?
 I'll try to support more platform and engine version in the future if there is no technical difficulty.  
 
 Tips:  
-It's recommended that you go to editor preference window and set "Spling Hover Tolerance" to higher than 10 for better control.  
+ 
