@@ -3,26 +3,18 @@
 Right click on pins to connect multiple nodes while dragging a connection wire.  
 ![1](right_click_multi_drop.gif)  
 
-Right click and drag while dragging a connection wire will pan the node graph.  
-![2](drag_and_pan.gif)  
-
-Click on pin to start free panning,zooming and dropping(without using keyboard).  
+Click on pin to start free panning,zooming and dropping.  
+(hold down shift will also enter this mode)  
 ![7](003_click_multi_drop.gif)  
 
-Hold down shift while dragging a connection to start free panning,zooming and dropping.   
-![3](shift_multi_drop.gif)  
-
-Shift click on connected node pin will duplicate connection wire.  
+Shift click on connected node pin to duplicate connection wire.  
 ![4](duplicate.gif)  
 
- Left click on connection wire to highlight,shift toggle selection,click on empty space to remove highlight.  
-![5](highlight.gif)
-
- Double click on pin will highlight all connected wires.    
+Double click on pin to highlight all connected,single click to highlight single wire,shift toggle highlight.    
  (for function nodes,slowly double click to avoid openning the node)  
 ![6](007_cluster_highlight.gif)  
 
- Double click on node will selecte all connected nodes.  
+ Double click on node to selecte all connected nodes.  
  depend on left or right area of the node clicked,will select all children or all parents.  
  (for function nodes,move mouse a little bit between two click to avoid openning the node)  
 ![7](008_stream.gif)
