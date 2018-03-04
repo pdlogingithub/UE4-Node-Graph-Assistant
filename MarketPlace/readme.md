@@ -22,14 +22,4 @@ Double click on pin to highlight all connected,single click to highlight single 
 Left click and drag on empty space while holding down alt will break all connection wires along its way.  
 (note that this is a experimental feature,if you are dragging too fast,some connection wires may still stay connected).  
 ![8](break.gif)
-
-
-QnA:  
-Does it support blueprint or other type of node graph?   
-Yes,it supports blueprint,also generally every kind of node graphs like animation blueprint or behavior tree graph.I mostly test on material graph and blueprint graph.  
-
-Will it support other platform and engine version?  
-I'll try to support more platform and engine version in the future if there is no technical difficulty.  
-
-Tips:  
  
