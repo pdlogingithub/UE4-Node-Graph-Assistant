@@ -10,11 +10,11 @@ Click on pin to start free panning,zooming and dropping.
 Shift click on connected node pin to duplicate connection wire.  
 ![4](duplicate.gif)  
 
-Double click on pin to highlight all connected,single click to highlight single wire,shift toggle highlight.    
+(1.3 up comming feature)Double click on pin to highlight all connected,single click to highlight single wire,shift toggle highlight.    
  (for function nodes,slowly double click to avoid openning the node)  
 ![6](007_cluster_highlight.gif)  
 
- Double click on node to selecte all connected nodes.  
+ (1.3 up comming feature)Double click on node to selecte all connected nodes.  
  depend on left or right area of the node clicked,will select all children or all parents.  
  (for function nodes,move mouse a little bit between two click to avoid openning the node)  
 ![7](008_stream.gif)
