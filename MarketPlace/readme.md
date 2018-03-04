@@ -15,11 +15,21 @@ Hold down shift while dragging a connection to start free panning,zooming and dr
 Shift click on connected node pin will duplicate connection wire.  
 ![4](duplicate.gif)  
 
- Left click on connection wire will highlight it,click on empty space to remove highlight.  
+ Left click on connection wire to highlight,shift toggle selection,click on empty space to remove highlight.  
 ![5](highlight.gif)
 
-Left click and drag on empty space while holding down alt will break all connection wires along its way(note that this is a experimental feature,if you are dragging too fast,some connection wires may still stay connected).  
-![6](break.gif)
+ Double click on pin will highlight all connected wires.    
+ (for function nodes,slowly double click to avoid openning the node)  
+![6](007_cluster_highlight.gif)  
+
+ Double click on node will selecte all connected nodes.  
+ depend on left or right area of the node clicked,will select all children or all parents.  
+ (for function nodes,move mouse a little bit between two click to avoid openning the node)  
+![7](008_stream.gif)
+
+Left click and drag on empty space while holding down alt will break all connection wires along its way.  
+(note that this is a experimental feature,if you are dragging too fast,some connection wires may still stay connected).  
+![8](break.gif)
 
 
 QnA:  
