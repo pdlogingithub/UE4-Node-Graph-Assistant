@@ -1,18 +1,41 @@
-# UE4-Multi-Dropping-Tool
-Some functionalities I put together for speeding up node graph creation,also for some general drag-drop actions.  
+# UE4-Node-Graph-Assistant User Guide
 
-Multi dropping,when "shift" is pressing will perform a drop action but keep drag action alive,each left click will perform a drop:  
-![1](Demo/multi_drop.gif)  
+When dragging a wire, pan just like normal, right click on pin to multi-connect,right click on panel to cancel.  
+![1](drag_pan_multi-connect.gif)  
 
-Drag and pan:  
-![2](Demo/drag_and_pan.gif)  
+Click on pin to start free panning,zooming and multi-connecting.  
+![2](click_pan_multi-connect.gif)  
 
-Trace:  
-![3](Demo/trace.gif)  
+When dragging a wire, hold down shift to  start free panning,zooming and multi-connecting.  
+![3](shift_pan_multi-connect.gif)  
 
-All these features work for blueprint editor too:  
-![4](Demo/bp.gif)  
+Shift click on pin to duplicate wire.  
+![4](dupli_wire.gif)  
 
-It also applys to general drag and drop actions:  
-![5](Demo/asset.gif)
-![6](Demo/ezgif.com-optimize.gif)
+Press alt + r to rearrange nodes,most suitable for small block of nodes.   
+![5](rearrange.gif)  
+
+Press alt + x will remove selected nodes on wire.  
+![6](bypass.gif)  
+
+Right click on wire to insert node on wire.  
+![7](insert.gif)
+
+Left click to highlight wire, hold down shift to highlight multiple wires,middle mouse double click on pin to highlight all connected wires.  
+![8](highlight.gif)  
+
+Hold down alt and drag on empty space will break all wires along its way.  
+![9](cutoff.gif)  
+
+Middle mouse double click on node to selecte all connected nodes.  
+Depend on left or right area of the node clicked on,will select all children or all parents.  
+Or use hot key alt+a, or alt +d.  
+![10](select_linked.gif)  
+
+
+Go to editor preference to see more settings.  
+
+
+
+
+ 
