@@ -35,6 +35,9 @@ Or use hot key alt+a, or alt +d.
 
 Go to editor preference to see more settings.  
 
+![11](Resource/1.4/keybind.png)  
+![12](Resource/1.4/config.png)  
+
 
 
 
