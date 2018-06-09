@@ -1,25 +1,24 @@
 # UE4-Node-Graph-Assistant User Guide
 
-Right click on pins to connect multiple nodes while dragging a connection wire.  
+When dragging a wire, pan just like normal, right click on pin to multi-connect,right click on panel to cancel.  
 ![1](drag_pan_multi-connect.gif)  
 
-Click on pin to start free panning,zooming and dropping.  
-(hold down shift will also enter this mode)  
-![7](003_click_multi_drop.gif)  
+Click on pin to start free panning,zooming and multi-connecting.  
+![2](click_pan_multi-connect.gif)  
 
-Shift click on connected pin to duplicate connection wire.  
-![4](duplicate.gif)  
+When dragging a wire, hold down shift to  start free panning,zooming and multi-connecting.  
+![3](shift_pan_multi-connect.gif)  
 
-Double click on pin to highlight all connected wires,single click to highlight single wire,shift toggle highlight.    
- (for function nodes,slowly double click to avoid openning the node)  
-![6](007_cluster_highlight.gif)  
+Shift click on pin to duplicate wire.  
+![4](dupli_wire.gif)  
 
-Double click on node to selecte all connected nodes.  
- depend on left or right area of the node clicked on,will select all children or all parents.  
- (for function nodes,move mouse a little bit between two click to avoid openning the node)  
-![7](008_stream.gif)
+Left click to highlight wire, hold down shift to highlight multiple wires,middle mouse double click on pin to highlight all connected wires.  
+![6](highlight.gif)  
 
-Left click and drag on empty space while holding down alt will break all connection wires along its way.  
-(note that this is a experimental feature,if you are dragging too fast,some connection wires may still stay connected).  
-![8](break.gif)
+Middle mouse double click on node to selecte all connected nodes.  
+Depend on left or right area of the node clicked on,will select all children or all parents.  
+![7](select_linked.gif)
+
+Hold down alt and drag on empty space will break all connection wires along its way.  
+![8](cutoff.gif)
  
