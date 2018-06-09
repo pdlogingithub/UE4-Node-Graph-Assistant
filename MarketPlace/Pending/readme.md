@@ -12,7 +12,7 @@ When dragging a wire, hold down shift to  start free panning,zooming and multi-c
 Shift click on pin to duplicate wire.  
 ![4](dupli_wire.gif)  
 
-Press alt + r to rearrange nodes.   
+Press alt + r to rearrange nodes,most suitable for small block of nodes.   
 ![5](rearrange.gif)  
 
 Press alt + x will remove selected nodes on wire.  
@@ -24,15 +24,16 @@ Right click on wire to insert node on wire.
 Left click to highlight wire, hold down shift to highlight multiple wires,middle mouse double click on pin to highlight all connected wires.  
 ![8](highlight.gif)  
 
-Hold down alt and drag on empty space will break all connection wires along its way.  
+Hold down alt and drag on empty space will break all wires along its way.  
 ![9](cutoff.gif)  
 
 Middle mouse double click on node to selecte all connected nodes.  
 Depend on left or right area of the node clicked on,will select all children or all parents.  
 Or use hot key alt+a, or alt +d.  
-![10](select_linked.gif)
+![10](select_linked.gif)  
 
 
+Go to editor preference to see more settings.  
 
 
 
