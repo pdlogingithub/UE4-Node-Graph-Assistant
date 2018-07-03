@@ -1,0 +1,28 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "1.2",
+	"FriendlyName": "Node Graph Assistant",
+	"Description": "Adds several new features to node graph editor(e.g. material, blueprint) for speeding up node graph creation.",
+	"Category": "Editor",
+	"CreatedBy": "yangxiangyun",
+	"CreatedByURL": "",
+	"DocsURL": "https://github.com/pdlogingithub/UE4-Node-Graph-Assistant/blob/master/README.md",
+	"MarketplaceURL": "com.epicgames.launcher://ue/marketplace/content/d9baaaeadeaf41dcb52b3f6e134e9514",
+	"SupportURL": "",
+	"EngineVersion": "4.18.0",
+	"EnabledByDefault": false,
+	"CanContainContent": false,
+	"IsBetaVersion": false,
+	"Installed": false,
+	"Modules": [
+		{
+			"Name": "NodeGraphAssistant",
+			"Type": "Editor",
+			"LoadingPhase": "Default",
+			"WhitelistPlatforms": [
+				"Win64"
+			]
+		}
+	]
+}
