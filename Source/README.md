@@ -1,0 +1,1 @@
+Node Graph Assistant v1.2 free open sourced!  
