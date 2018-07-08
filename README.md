@@ -32,11 +32,24 @@ Depend on left or right area of the node clicked on,will select all children or 
 Or use hot key alt+a, or alt +d.  
 ![10](Resource/1.4/select_linked.gif)  
 
+~1.5 pending feature~  
+Wire will auto align to closest connectible pin of the current hovered node.  
+![11](Resource/1.5/lazy_connect.gif)  
+
+~1.5 pending feature~  
+When moving a node,its pins will align to surrounding connectible pins, releasing mouse will commit connections.  
+hold down alt will suppress auto connect.  
+![12](Resource/1.5/auto_connect.gif)  
+
+~1.5 pending feature~  
+press tool bar button to cycle through wire style.  
+![13](Resource/1.5/wire_style.gif)  
+
 
 Go to editor preference to see more settings.  
 
-![11](Resource/1.4/keybind.png)  
-![12](Resource/1.4/config.png)  
+![14](Resource/1.4/keybind.png)  
+![15](Resource/1.5/config.png)  
 
 
 
