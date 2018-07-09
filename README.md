@@ -34,12 +34,14 @@ Or use hot key alt+a, or alt +d.
 
 `1.5 pending feature`  
 Wire will auto align to closest connectible pin of the current hovered node.  
+when click and drag while hold down shit will connect all node pins under cursor.  
 ![11](Resource/1.5/lazy_connect.gif)  
 
 `1.5 pending feature`  
 When moving a node,its pins will align to surrounding connectible pins, releasing mouse will commit connections.  
 hold down alt will suppress auto connect.  
 or click tool bar icon to disable.  
+auto connect only apply to node under mouse,and will only make connection between unconnected pins of two unconnected nodes.  
 ![12](Resource/1.5/auto_connect.gif)  
 
 `1.5 pending feature`  
