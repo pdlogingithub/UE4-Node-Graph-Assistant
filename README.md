@@ -53,6 +53,14 @@ Go to editor preference to see more settings.
 ![15](Resource/1.5/config.png)  
 
 
+1.5 change log  
+new: lzay connect.
+new: auto connect.  
+new: wire style. 
+fix: wire highlight lost when dealing with multiple graph issue.  
+fix: duplicate wire nor work with ai graph.  
+add cut off cursor icon.  
+
 
 
  
