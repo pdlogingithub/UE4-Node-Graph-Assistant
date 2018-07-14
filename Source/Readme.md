@@ -1,1 +1,1 @@
-Node graph assistant 1.3 source code.
+Node graph assistant 1.2 source code.
