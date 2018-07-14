@@ -1,28 +1,27 @@
 {
 	"FileVersion": 3,
-	"Version": 1,
-	"VersionName": "1.2",
+	"Version": 1.3,
+	"VersionName": "1.3",
 	"FriendlyName": "Node Graph Assistant",
-	"Description": "Adds several new features to node graph editor(e.g. material, blueprint) for speeding up node graph creation.",
+	"Description": "Introduce new editor features that enable faster node graph creation.",
 	"Category": "Editor",
 	"CreatedBy": "yangxiangyun",
-	"CreatedByURL": "",
-	"DocsURL": "https://github.com/pdlogingithub/UE4-Node-Graph-Assistant/blob/master/README.md",
+	"CreatedByURL": "https://yangxiangyun.wixsite.com/mysite",
+	"DocsURL": "https://github.com/pdlogingithub/UE4-Node-Graph-Assistant/blob/master/MarketPlace/readme.md",
 	"MarketplaceURL": "com.epicgames.launcher://ue/marketplace/content/d9baaaeadeaf41dcb52b3f6e134e9514",
-	"SupportURL": "",
-	"EngineVersion": "4.18.0",
-	"EnabledByDefault": false,
+	"SupportURL": "https://forums.unrealengine.com/unreal-engine/marketplace/1435240-node-graph-assistant",
+  "EngineVersion": [ "4.16.0", "4.17.0", "4.18.0", "4.19.0" ],
+	"EnabledByDefault": true,
 	"CanContainContent": false,
 	"IsBetaVersion": false,
-	"Installed": false,
-	"Modules": [
+	"Installed": true,
+	"Modules": 
+	[
 		{
 			"Name": "NodeGraphAssistant",
 			"Type": "Editor",
-			"LoadingPhase": "Default",
-			"WhitelistPlatforms": [
-				"Win64"
-			]
+			"LoadingPhase": "PostEngineInit",
+			"WhitelistPlatforms": ["Win64"]
 		}
 	]
 }

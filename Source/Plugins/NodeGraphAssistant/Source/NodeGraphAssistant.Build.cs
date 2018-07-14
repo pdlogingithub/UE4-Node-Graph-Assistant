@@ -25,6 +25,7 @@ namespace UnrealBuildTool.Rules
                     "Editor/UnrealEd/Classes",
                     "Editor/GraphEditor/Public",
                     "Editor/EditorStyle/Public",
+                    //"Runtime/Engine/Classes/EdGraph/",
 					// ... add other private include paths required here ...
 				}
 				);
@@ -39,7 +40,7 @@ namespace UnrealBuildTool.Rules
 			PrivateDependencyModuleNames.AddRange(
 				new string[]
 				{
-                    "Core","CoreUObject","Slate","SlateCore","UnrealEd","GraphEditor","InputCore","EditorStyle",
+                    "Core","CoreUObject","Slate","SlateCore","UnrealEd","GraphEditor","InputCore","EditorStyle","Engine",
 					// ... add private dependencies that you statically link with here ...
 				}
 				);
@@ -51,11 +52,11 @@ namespace UnrealBuildTool.Rules
 				}
 				);
 
-
-            //include one header file that is inside private folder.
-            string engine_path = Path.GetFullPath(BuildConfiguration.RelativeEnginePath);
-            string srcrt_path1 = engine_path + "Source/Editor/GraphEditor/Private";
-            PrivateIncludePaths.Add(srcrt_path1);
+            string enginePath = Path.GetFullPath(Target.RelativeEnginePath);
+			
+            PrivateIncludePaths.Add(enginePath + "Source/Editor/GraphEditor/Private");
+			PrivateIncludePaths.Add(enginePath + "Source/Runtime/Launch/Resources");
+            PrivateIncludePaths.Add(enginePath + "Source/Runtime/Engine/Classes/EdGraph");
         }
 	}
 }
