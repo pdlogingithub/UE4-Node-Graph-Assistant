@@ -1,5 +1,8 @@
 # UE4-Node-Graph-Assistant User Guide
 
+support page: https://forums.unrealengine.com/unreal-engine/marketplace/1435240-node-graph-assistant  
+Marketplace page: https://www.unrealengine.com/marketplace/node-graph-assistant  
+
 1.Right click multi-connect: When dragging a wire, pan just like normal, right click on pin to multi-connect,right click on panel to cancel.  
 ![1](Resource/1.4/drag_pan_multi-connect.gif)  
 
