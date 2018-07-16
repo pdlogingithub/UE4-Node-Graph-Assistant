@@ -51,8 +51,9 @@ auto connect only apply to node under mouse,and will only make connection betwee
 
 Go to editor preference to see more settings.  
 
-![14](Resource/1.4/keybind.png)  
-![15](Resource/1.5/config.png)  
+![14](Resource/1.5/instruction_plugin.png)  
+![15](Resource/1.5/instruction_keybind.png)  
+![16](Resource/1.5/instruction_config.png)  
 
 
 
