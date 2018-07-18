@@ -1,4 +1,4 @@
-Node graph assistant 1.2 source code.
+Node graph assistant 1.5 source code.
 
-Click this link if you want to buy the latest version with full features without build from source:
+Click this link to buy at marketplace without build from source and get latest update and fix,thank you for your support:
 https://www.unrealengine.com/marketplace/node-graph-assistant

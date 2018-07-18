@@ -4,8 +4,10 @@
 #include "NodeGraphAssistant.h"
 #include "CoreMinimal.h"
 #include "Modules/ModuleManager.h"
+#include "ISettingsModule.h"
 #include "SlateApplication.h"
 #include "GraphEditorSettings.h"
+#include "NodeGraphAssistantConfig.h"
 
 #include "Version.h"
 
@@ -16,7 +18,7 @@ void NodeGraphAssistant::StartupModule()
 {
 	if (FSlateApplication::IsInitialized())
 	{
-		MyInputProcessor = MakeShareable(new FOverrideSlateInputProcessor());
+		MyInputProcessor = MakeShareable(new NGAInputProcessor());
 		bool ret = false;
 
 #if ENGINE_MINOR_VERSION > 16
@@ -36,6 +38,21 @@ void NodeGraphAssistant::StartupModule()
 			{
 				const_cast<UGraphEditorSettings*>(GetDefault<UGraphEditorSettings>())->SplineHoverTolerance = 15;
 			}
+
+#if ENGINE_MINOR_VERSION > 16
+			if (GetDefault<UGraphEditorSettings>()->PanningMouseButton == EGraphPanningMouseButton::Middle)
+			{
+				const_cast<UNodeGraphAssistantConfig*>(GetDefault<UNodeGraphAssistantConfig>())->DragCutOffWireMouseButton = ECutOffMouseButton::Left;
+			}
+#endif
+
+			if (ISettingsModule* SettingsModule = FModuleManager::GetModulePtr<ISettingsModule>("Settings"))
+			{
+				SettingsModule->RegisterSettings("Editor", "Plugins", "NodeGraphAssistant",
+					NSLOCTEXT("NodeGraphAssistant","SettingsName", "Node Graph Assistant"),
+					NSLOCTEXT("NodeGraphAssistant","SettingsDescription", "Settings for plugin Node Graph Assistant"),
+					GetMutableDefault<UNodeGraphAssistantConfig>());
+			}
 		}
 	}
 }
@@ -53,5 +70,10 @@ void NodeGraphAssistant::ShutdownModule()
 #endif
 
 		MyInputProcessor.Reset();
+
+		if (ISettingsModule* SettingsModule = FModuleManager::GetModulePtr<ISettingsModule>("Settings"))
+		{
+			SettingsModule->UnregisterSettings("Editor", "Plugins", "NodeGraphAssistant");
+		}
 	}
 }
