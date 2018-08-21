@@ -2,6 +2,7 @@
 
 support page: https://forums.unrealengine.com/unreal-engine/marketplace/1435240-node-graph-assistant  
 Marketplace page: https://www.unrealengine.com/marketplace/node-graph-assistant  
+中文说明：https://github.com/pdlogingithub/UE4-Node-Graph-Assistant/blob/master/Doc/%E8%99%9A%E5%B9%BB4%E8%93%9D%E5%9B%BE%E5%8A%A9%E6%89%8B%E4%BD%BF%E7%94%A8%E8%AF%B4%E6%98%8E.md  
 
 1.Right click multi-connect: Panning is unlock when dragging a wire,right click on pin to multi-connect,right click on panel to cancel.  
 ![1](Resource/1.4/drag_pan_multi-connect.gif)  
@@ -27,7 +28,7 @@ Marketplace page: https://www.unrealengine.com/marketplace/node-graph-assistant
 8.Highlight wire: Left click to highlight wire, hold down shift to highlight multiple wires,middle mouse double click on pin to highlight all connected wires.  
 ![8](Resource/1.4/highlight.gif)  
 
-9. Cutoff wires: Hold down alt and drag on empty space will break all wires along its way.  
+9.Cutoff wires: Hold down alt and drag on empty space will break all wires along its way.  
 ![9](Resource/1.4/cutoff.gif)  
 
 10.Select linked node: Middle mouse double click on node to selecte all connected nodes.  
@@ -45,6 +46,10 @@ hold down alt will suppress auto connect.
 
 13.Wire style: press tool bar button to cycle through wire style.  
 ![13](Resource/1.5/wire_style.gif)  
+
+
+—————————————————1.6 pending features———————————————————  
+
 
 14.Shake node off wire: Swing dragging nodes quicklly to bypass this node from wires.  
 ![14](Resource/1.6/shake_node_off_wire.gif)  
