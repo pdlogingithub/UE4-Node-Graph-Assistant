@@ -6,10 +6,10 @@
 #include "CoreMinimal.h"
 #include "SoundCueGraph/SoundCueGraphSchema.h"
 
-#ifdef NGA_With_MatDrawPolicy_API
+#ifdef NGA_WITH_ENGINE_CPP
 #include "SoundCueGraphConnectionDrawingPolicy.cpp"
 #else
-#include "../_ImportModulAPI/SoundCueGraphConnectionDrawingPolicy.cpp"
+#include "../_ImportPrivateEngineAPI/SoundCueGraphConnectionDrawingPolicy.cpp"
 #endif
 
 #include "NGAGraphPinConnectionFactory.h"
@@ -19,17 +19,18 @@
 class FNGASoundCueGraphConnectionDrawingPolicy : public FSoundCueGraphConnectionDrawingPolicy
 {
 public:
-	const USoundCueGraphSchema* MySchema;
-	FNGAGraphPinConnectionFactoryPayLoadData MyPayLoadData;
+	TSharedPtr<FNGAGraphPinConnectionFactoryPayLoadData> MyPayLoadData;
 
 	TArray<FVector2D> DelayDrawPreviewStart;
 	TArray<FVector2D> DelayDrawPreviewEnd;
 	TArray<UEdGraphPin*> DelayDrawPreviewPins;
 
-	FNGASoundCueGraphConnectionDrawingPolicy(int32 InBackLayerID, int32 InFrontLayerID, float ZoomFactor, const FSlateRect& InClippingRect, FSlateWindowElementList& InDrawElements, UEdGraph* InGraphObj, FNGAGraphPinConnectionFactoryPayLoadData InPayLoadData)
+	UEdGraph* MyGraphObject;
+
+	FNGASoundCueGraphConnectionDrawingPolicy(int32 InBackLayerID, int32 InFrontLayerID, float ZoomFactor, const FSlateRect& InClippingRect, FSlateWindowElementList& InDrawElements, UEdGraph* InGraphObj, TSharedPtr<FNGAGraphPinConnectionFactoryPayLoadData> InPayLoadData)
 		:FSoundCueGraphConnectionDrawingPolicy(InBackLayerID, InFrontLayerID, ZoomFactor, InClippingRect, InDrawElements, InGraphObj)
 		, MyPayLoadData(InPayLoadData)
-		, MySchema(static_cast<const USoundCueGraphSchema*>(InGraphObj->GetSchema()))
+		, MyGraphObject(InGraphObj)
 	{
 	}
 
@@ -39,7 +40,4 @@ public:
 	virtual void DrawConnection(int32 LayerId, const FVector2D& Start, const FVector2D& End, const FConnectionParams& Params) override;
 
 	void DelayDrawPreviewConnector();
-
-private:
-
 };

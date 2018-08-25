@@ -5,31 +5,30 @@
 
 #include "CoreMinimal.h"
 
-#ifdef NGA_With_MatDrawPolicy_API
+#ifdef NGA_WITH_ENGINE_CPP
 #include "MaterialGraphConnectionDrawingPolicy.cpp"
 #else
-#include "../_ImportModulAPI/MaterialGraphConnectionDrawingPolicy.cpp"
+#include "../_ImportPrivateEngineAPI/MaterialGraphConnectionDrawingPolicy.cpp"
 #endif
 
 #include "NGAGraphPinConnectionFactory.h"
 
 
-
 class FNGAMaterialGraphConnectionDrawingPolicy : public FMaterialGraphConnectionDrawingPolicy
 {
 public:
-
-	FNGAGraphPinConnectionFactoryPayLoadData MyPayLoadData;
-	UEdGraph* MyGraphObject;
+	TSharedPtr<FNGAGraphPinConnectionFactoryPayLoadData> MyPayLoadData;
 
 	TArray<FVector2D> DelayDrawPreviewStart;
 	TArray<FVector2D> DelayDrawPreviewEnd;
 	TArray<UEdGraphPin*> DelayDrawPreviewPins;
 
-	FNGAMaterialGraphConnectionDrawingPolicy(int32 InBackLayerID, int32 InFrontLayerID, float ZoomFactor, const FSlateRect& InClippingRect, FSlateWindowElementList& InDrawElements, UEdGraph* InGraphObj, FNGAGraphPinConnectionFactoryPayLoadData InPayLoadData)
+	UEdGraph* MyGraphObject;
+
+	FNGAMaterialGraphConnectionDrawingPolicy(int32 InBackLayerID, int32 InFrontLayerID, float ZoomFactor, const FSlateRect& InClippingRect, FSlateWindowElementList& InDrawElements, UEdGraph* InGraphObj, TSharedPtr<FNGAGraphPinConnectionFactoryPayLoadData> InPayLoadData)
 		:FMaterialGraphConnectionDrawingPolicy(InBackLayerID, InFrontLayerID, ZoomFactor, InClippingRect, InDrawElements, InGraphObj)
-		,MyPayLoadData(InPayLoadData)
-		,MyGraphObject(InGraphObj)
+		, MyPayLoadData(InPayLoadData)
+		, MyGraphObject(InGraphObj)
 	{
 	}
 
@@ -40,7 +39,4 @@ public:
 	virtual void DetermineWiringStyle(UEdGraphPin* OutputPin, UEdGraphPin* InputPin, /*inout*/ FConnectionParams& Params) override;
 
 	void DelayDrawPreviewConnector();
-
-private:
-
 };

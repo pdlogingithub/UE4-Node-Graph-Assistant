@@ -7,16 +7,78 @@
 #include "CoreMinimal.h"
 
 #include "SGraphPanel.h"
+#include "HardwareCursor.h"
+#include "Application/ThrottleManager.h"
+
 #include "NodeGraphAssistantCommands.h"
 #include "Style/NGAGraphPinConnectionFactory.h"
-#include "HardwareCursor.h"
+
+
+enum EGraphObjType
+{
+	EGT_Default,
+	EGT_AnimStateMachine,
+	EGT_Niagara,
+	EGT_AI,
+	EGT_ReferenceViewer,
+	EGT_PhysicsAsset,
+	EGT_Sound
+};
+
+struct FNGAEventContex
+{
+	bool IsDraggingConnection = false;
+	bool IsCursorInsidePanel = false;
+	bool IsCursorOnPanelEmptySpace = false;
+	bool IsClickGesture = false;
+	bool IsDoubleClickGesture = false;
+	TSharedPtr<SGraphPanel> GraphPanel = nullptr; //hovered graph panel.
+	FGeometry PanelGeometry;
+	TSharedPtr<SGraphNode> GraphNode = nullptr; //hovered graph node.
+	FGeometry NodeGeometry;
+	bool IsNodeTitle = false;
+	TSharedPtr<SGraphPin> GraphPin = nullptr; //hovered graph pin.
+	FGeometry PinGeometry;
+	EGraphObjType GraphType = EGT_Default;
+};
+
+struct FNGAEventReply
+{
+	bool IsHandled = false;
+	bool ShouldBlockInput = false;
+
+	static FNGAEventReply BlockSlateInput()
+	{
+		FNGAEventReply reply;
+		reply.IsHandled = true;
+		reply.ShouldBlockInput = true;
+		return reply;
+	};
+
+	static FNGAEventReply UnHandled()
+	{
+		return FNGAEventReply();
+	}
+	static FNGAEventReply Handled()
+	{
+		FNGAEventReply reply;
+		reply.IsHandled = true;
+		return reply;
+	}
+
+	void Append(FNGAEventReply AdditionalReply)
+	{
+		IsHandled |= AdditionalReply.IsHandled;
+		ShouldBlockInput |= AdditionalReply.ShouldBlockInput;
+	}
+};
+
 
 class NGAInputProcessor : public IInputProcessor
 {
 public:
 	NGAInputProcessor();
 	virtual ~NGAInputProcessor();
-
 
 	virtual void Tick(const float DeltaTime, FSlateApplication& SlateApp, TSharedRef<ICursor> Cursor) override;
 	virtual bool HandleMouseButtonUpEvent(FSlateApplication& SlateApp, const FPointerEvent& MouseEvent) override;
@@ -26,71 +88,71 @@ public:
 	virtual bool HandleKeyUpEvent(FSlateApplication& SlateApp, const FKeyEvent& InKeyEvent) override;
 
 
+	FNGAEventContex InitEventContex(FSlateApplication& SlateApp, const FPointerEvent& MouseEvent);
+
 	//if cursor is inside node graph.
-	bool IsCursorInsidePanel(const FPointerEvent& MouseEvent) const;
-
-	//get the graph panel and its geometry.
-	FArrangedWidget GetArrangedGraphPanel(const FPointerEvent& MouseEvent);
-	FArrangedWidget GetArrangedGraphNode(const FPointerEvent& MouseEvent);
-
-	//is name of pin class
-	bool IsPinName(const FString& InName) const;
-
-	//get the graph panel.
-	SGraphPanel* GetGraphPanel(const FPointerEvent& MouseEvent);
-
-	FSlateRect GetWidgetRect(FGeometry Geometry);
-
-	//get the graph panel currently under cursor.
-	SGraphPanel* GetCurrentGraphPanel();
-
-	FVector2D GraphPosToScreenPos(FArrangedWidget ArrangedPanel, FVector2D PanelPos);
-	FVector2D ScreenPosToGraphPos(FArrangedWidget ArrangedPanel, FVector2D ScreenPos);
+	bool IsCursorInsidePanel() const;
 
 	//is cursor not above any regular nodes or inside comment node.
-	bool IsCursorOnEmptySpace(const FPointerEvent& MouseEvent) const;
+	bool IsCursorOnEmptySpace() const;
 
 	//is dragging a node connection wire.
 	bool IsDraggingConnection() const;
 
+	FSlateRect GetWidgetRect(FGeometry Geometry);
+
+	//get the graph panel currently under cursor.
+	TSharedPtr<SGraphPanel> GetCurrentGraphPanel();
+
+	FVector2D GraphPosToScreenPos(TSharedRef<SGraphPanel> GraphPanel, FGeometry Geometry, FVector2D PanelPos);
+	FVector2D ScreenPosToGraphPos(TSharedRef<SGraphPanel> GraphPanel, FGeometry Geometry, FVector2D ScreenPos);
+
 	void CancelDraggingReset(int32 UserIndex);
 
-
-	//is the panning button according to graph editor setting gets pressed.
-	bool CanBeginOrEndPan(const FPointerEvent& MouseEvent) const;
-
-	//is the panning button according to graph editor setting pressed.
-	bool IsDragNPanning(const FPointerEvent& MouseEvent) const;
-
-	bool IsTryingToCutOffWire(const FPointerEvent& MouseEvent) const;
+	bool IsPanningButton(const FKey& Key) const;
+	bool IsPanningButtonDown(const FPointerEvent& MouseEvent) const;
+	bool IsCutoffButton(const FKey& Key) const;
+	bool IsCutoffButtonDown(const FPointerEvent& MouseEvent) const;
 
 
-	bool TryProcessAsDupliWireEvent(FSlateApplication& SlateApp, const FPointerEvent& MouseEvent);
-	bool TryProcessAsBeginDragNPanEvent(const FPointerEvent& MouseEvent);
-	void TryProcessAsBeingDragNPanEvent(const FPointerEvent& MouseEvent);
-	bool TryProcessAsSelectStreamEvent(const FPointerEvent& MouseEvent);
-	bool TryProcessAsMultiConnectEvent(FSlateApplication& SlateApp, const FPointerEvent& MouseEvent);
-	bool TryProcessAsClusterHighlightEvent(const FPointerEvent& MouseEvent);
-	bool TryProcessAsSingleHighlightEvent(const FPointerEvent& MouseEvent);
-	bool TryProcessAsBeginCutOffWireEvent(FSlateApplication& SlateApp, const FPointerEvent& MouseEvent);
-	void TryProcessAsCutOffWireEvent(FSlateApplication& SlateApp,const FPointerEvent& MouseEvent);
-	void TryProcessAsEndCutOffWireEvent(FSlateApplication& SlateApp, const FPointerEvent& MouseEvent);
-	void TryProcessAsBypassNodesEvent();
-	bool TryProcessAsInsertNodeEvent(const FPointerEvent& MouseEvent);
-	void TryProcessAsRearrangeNodesEvent();
-	void TryProcessAsBeginLazyConnectEvent(FSlateApplication& SlateApp, const FPointerEvent& MouseEvent);
-	void TryProcessAsLazyConnectEvent(FSlateApplication& SlateApp, const FPointerEvent& MouseEvent);
-	void TryProcessAsEndLazyConnectEvent(FSlateApplication& SlateApp, const FPointerEvent& MouseEvent);
-	void TryProcessAsAutoConnectMouseDownEvent(FSlateApplication& SlateApp, const FPointerEvent& MouseEvent);
-	void TryProcessAsAutoConnectMouseMoveEvent(FSlateApplication& SlateApp, const FPointerEvent& MouseEvent);
-	void TryProcessAsAutoConnectMouseUpEvent(FSlateApplication& SlateApp, const FPointerEvent& MouseEvent);
+	FNGAEventReply TryProcessAsDupliWireEvent(FSlateApplication& SlateApp, const FPointerEvent& MouseEvent, const FNGAEventContex& Ctx);
+	FNGAEventReply TryProcessAsBeginDragNPanEvent(FSlateApplication& SlateApp, const FPointerEvent& MouseEvent, const FNGAEventContex& Ctx);
+	FNGAEventReply TryProcessAsBeingDragNPanEvent(FSlateApplication& SlateApp, const FPointerEvent& MouseEvent, const FNGAEventContex& Ctx);
+	FNGAEventReply TryProcessAsEndDragNPanEvent(FSlateApplication& SlateApp, const FPointerEvent& MouseEvent, const FNGAEventContex& Ctx);
+	FNGAEventReply TryProcessAsSelectStreamEvent(FSlateApplication& SlateApp, const FPointerEvent& MouseEvent, const FNGAEventContex& Ctx);
+	FNGAEventReply TryProcessAsMultiConnectEvent(FSlateApplication& SlateApp, const FPointerEvent& MouseEvent, const FNGAEventContex& Ctx);
+	FNGAEventReply TryProcessAsClusterHighlightEvent(FSlateApplication& SlateApp, const FPointerEvent& MouseEvent, const FNGAEventContex& Ctx);
+	FNGAEventReply TryProcessAsSingleHighlightEvent(FSlateApplication& SlateApp, const FPointerEvent& MouseEvent, const FNGAEventContex& Ctx);
+	FNGAEventReply TryProcessAsBeginCutOffWireEvent(FSlateApplication& SlateApp, const FPointerEvent& MouseEvent, const FNGAEventContex& Ctx);
+	FNGAEventReply TryProcessAsBeingCutOffWireEvent(FSlateApplication& SlateApp,const FPointerEvent& MouseEvent, const FNGAEventContex& Ctx);
+	FNGAEventReply TryProcessAsEndCutOffWireEvent(FSlateApplication& SlateApp, const FPointerEvent& MouseEvent, const FNGAEventContex& Ctx);
+	FNGAEventReply TryProcessAsCreateNodeOnWireEvent(FSlateApplication& SlateApp, const FPointerEvent& MouseEvent, const FNGAEventContex& Ctx);
+	FNGAEventReply TryProcessAsEndCreateNodeOnWireEvent(FSlateApplication& SlateApp, const FPointerEvent& MouseEvent, const FNGAEventContex& Ctx);
+	FNGAEventReply TryProcessAsBeginLazyConnectEvent(FSlateApplication& SlateApp, const FPointerEvent& MouseEvent, const FNGAEventContex& Ctx);
+	FNGAEventReply TryProcessAsLazyConnectMouseMoveEvent(FSlateApplication& SlateApp, const FPointerEvent& MouseEvent, FNGAEventContex Ctx);
+	FNGAEventReply TryProcessAsEndLazyConnectEvent(FSlateApplication& SlateApp, const FPointerEvent& MouseEvent, FNGAEventContex Ctx);
+	FNGAEventReply TryProcessAsAutoConnectMouseMoveEvent(FSlateApplication& SlateApp, const FPointerEvent& MouseEvent, const FNGAEventContex& Ctx);
+	FNGAEventReply TryProcessAsAutoConnectMouseUpEvent(FSlateApplication& SlateApp, const FPointerEvent& MouseEvent, const FNGAEventContex& Ctx);
+	FNGAEventReply TryProcessAsShakeNodeOffWireEvent(FSlateApplication& SlateApp, const FPointerEvent& MouseEvent, FNGAEventContex Ctx);
+	FNGAEventReply TryProcessAsInsertNodeMouseMoveEvent(FSlateApplication& SlateApp, const FPointerEvent& MouseEvent, const FNGAEventContex& Ctx);
+	FNGAEventReply TryProcessAsEndInsertNodeEvent(FSlateApplication& SlateApp, const FPointerEvent& MouseEvent, const FNGAEventContex& Ctx);
 
 
-	//for ui command.
+	void BypassSelectedNodes(bool ForceKeepNode);
+	void RearrangeNodes();
 	void OnSelectLinkedNodes(bool bDownStream, bool bUpStream);
 	void CycleWireDrawStyle();
+	void DupliNodeWithWire();
+	void ExchangeWire(NGAInputProcessor* InputProcessor);
 
 private:
+	struct ShakeOffNodeTrackigInfo
+	{
+		double MouseMoveTime;
+		FVector2D MouseMoveDirection;
+	};
+	TArray<ShakeOffNodeTrackigInfo> ShakeOffNodeTracker;
+
 	FVector2D LastGraphCursorGraphPos;
 	FVector2D LastGraphCursorScreenPosClamped;
 	FSlateRect LastPanelScreenSpaceRect;
@@ -102,25 +164,17 @@ private:
 	bool DidIHideTheCursor = false;
 	bool HasBegunCuttingWire = false;
 	bool HasBegunLazyConnect = false;
-	bool IsSelecting = false;
-	//prevent connect pins when mouse move if user are duplicating wire,
-	bool HasMouseUpAfterDrag = false;
+	bool RefreshToolTipWhenMouseMove = false;
+	bool BlockNextClick = false;
 
 	TWeakPtr<SGraphNode> NodeBeingDrag;
 
 	DECLARE_DELEGATE_RetVal(bool, NGADeferredEventDele)
 	TArray<NGADeferredEventDele> TickEventListener;
 
-	//DECLARE_DELEGATE_RetVal_TwoParams(ProcessResult, MouseEventListenerDele, FSlateApplication&, const FPointerEvent&)
-	//TMap<FName, MouseEventListenerDele> OnMouseMoveListeners;
-	//TMap<FName, MouseEventListenerDele> OnMouseButtonDownListeners;
-	//TMap<FName, MouseEventListenerDele> OnMouseButtonUpListeners;
-
-
 	//to communicate with draw event
-	TSharedPtr<FNGAGraphPinConnectionFactory> MyGraphPinConnectionFactory;
+	TSharedPtr<FNGAGraphPinConnectionFactory> MyPinFactory;
 
-	//todo,hold pins for each graph panel instance.
 	TSet<TWeakPtr<SGraphPin>> HighLightedPins; 
 
 	//use when need to boost slate performance.

@@ -23,14 +23,22 @@ struct FNodeHelper
 	// get all nodes that linked to these nodes.
 	static TArray<UEdGraphNode*> GetLinkedNodes(TArray<UEdGraphNode*> SourceNodes, bool bDownStream, bool bUpStream);
 
+	static FVector2D GetSplinePointDistanceIfClose(FVector2D SplineStart, FVector2D SplineEnd, FVector2D PointPosition, const UGraphEditorSettings* Settings);
+
 	//
 	static float GetWirePointDistanceIfClose(const FArrangedWidget& ArrangedGraphPanel, SGraphPin* APin, SGraphPin* BPin, FVector2D HitPosition, const UGraphEditorSettings* Settings);
+
 
 	//if given position can hit the spline defined by two give pins.
 	static bool GetWirePointHitResult(const FArrangedWidget& ArrangedGraphPanel, SGraphPin* APin, SGraphPin* BPin, FVector2D HitPosition, float WireThickness, const UGraphEditorSettings* Settings);
 
-	//try to remove nodes but keep wire flow.
-	static bool BypassNodes(TArray<UEdGraphNode*> sourceNodes);
+	/*
+	* try to remove nodes but keep wire flow.
+	*
+	* @param	ForceBypass	    break pin links event when can not bypass them(input pin type not compatible with output pin type).
+	* @param	ForceKeepNode	do not remove node event it is bypassed.
+	*/
+	static bool BypassNodes(UEdGraph* Graph, TArray<UEdGraphNode*> TargetNodes, bool ForceBypass, bool ForceKeepNode);
 
 	//
 	static TArray<TArray<UEdGraphNode*>> CalculateNodeshierarchy(TArray<UEdGraphNode*> sourceNodes, EAlignDirection AlignDirection);
@@ -41,7 +49,8 @@ struct FNodeHelper
 	//for ai graph.
 	static bool RearrangeSelectedNodes_AIGraph(SGraphPanel* graphPanel, FIntPoint Spacing, float SpacingRelax);
 
+	static TArray<TSharedRef<SGraphPin>> GetPins(TSharedRef<SGraphNode> GraphNode);
+
 private:
-	static bool TryBypassOneToNConnection(UEdGraphPin* ALinkedPin, UEdGraphPin* APin, UEdGraphPin* BPin, TArray<UEdGraphPin*> BLinkedPins);
 };
 	

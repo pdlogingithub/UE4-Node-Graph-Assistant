@@ -14,17 +14,18 @@
 class FNGABPGraphConnectionDrawingPolicy : public FKismetConnectionDrawingPolicy
 {
 public:
-	const UEdGraphSchema_K2* MySchema;
-	FNGAGraphPinConnectionFactoryPayLoadData MyPayLoadData;
+	TSharedPtr<FNGAGraphPinConnectionFactoryPayLoadData> MyPayLoadData;
 
 	TArray<FVector2D> DelayDrawPreviewStart;
 	TArray<FVector2D> DelayDrawPreviewEnd;
 	TArray<UEdGraphPin*> DelayDrawPreviewPins;
 
-	FNGABPGraphConnectionDrawingPolicy(int32 InBackLayerID, int32 InFrontLayerID, float ZoomFactor, const FSlateRect& InClippingRect, FSlateWindowElementList& InDrawElements, UEdGraph* InGraphObj, FNGAGraphPinConnectionFactoryPayLoadData InPayLoadData)
+	UEdGraph* MyGraphObject;
+
+	FNGABPGraphConnectionDrawingPolicy(int32 InBackLayerID, int32 InFrontLayerID, float ZoomFactor, const FSlateRect& InClippingRect, FSlateWindowElementList& InDrawElements, UEdGraph* InGraphObj, TSharedPtr<FNGAGraphPinConnectionFactoryPayLoadData> InPayLoadData)
 		:FKismetConnectionDrawingPolicy(InBackLayerID, InFrontLayerID, ZoomFactor, InClippingRect, InDrawElements, InGraphObj)
 		, MyPayLoadData(InPayLoadData)
-		, MySchema(static_cast<const UEdGraphSchema_K2*>(InGraphObj->GetSchema()))
+		, MyGraphObject(InGraphObj)
 	{
 	}
 
@@ -34,7 +35,4 @@ public:
 	virtual void DrawConnection(int32 LayerId, const FVector2D& Start, const FVector2D& End, const FConnectionParams& Params) override;
 
 	void DelayDrawPreviewConnector();
-
-private:
-
 };

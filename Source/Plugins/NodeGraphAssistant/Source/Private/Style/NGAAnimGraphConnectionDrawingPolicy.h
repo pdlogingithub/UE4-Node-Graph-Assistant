@@ -5,12 +5,10 @@
 
 #include "CoreMinimal.h"
 
-#include "AnimationGraphSchema.h"
-
-#ifdef NGA_With_MatDrawPolicy_API
+#ifdef NGA_WITH_ENGINE_CPP
 #include "AnimGraphConnectionDrawingPolicy.cpp"
 #else
-#include "../_ImportModulAPI/AnimGraphConnectionDrawingPolicy.cpp"
+#include "../_ImportPrivateEngineAPI/AnimGraphConnectionDrawingPolicy.cpp"
 #endif
 
 #include "NGAGraphPinConnectionFactory.h"
@@ -20,17 +18,18 @@
 class FNGAAnimGraphConnectionDrawingPolicy : public FAnimGraphConnectionDrawingPolicy
 {
 public:
-	const UAnimationGraphSchema* MySchema;
-	FNGAGraphPinConnectionFactoryPayLoadData MyPayLoadData;
+	TSharedPtr<FNGAGraphPinConnectionFactoryPayLoadData> MyPayLoadData;
 
 	TArray<FVector2D> DelayDrawPreviewStart;
 	TArray<FVector2D> DelayDrawPreviewEnd;
 	TArray<UEdGraphPin*> DelayDrawPreviewPins;
 
-	FNGAAnimGraphConnectionDrawingPolicy(int32 InBackLayerID, int32 InFrontLayerID, float ZoomFactor, const FSlateRect& InClippingRect, FSlateWindowElementList& InDrawElements, UEdGraph* InGraphObj, FNGAGraphPinConnectionFactoryPayLoadData InPayLoadData)
+	UEdGraph* MyGraphObject;
+
+	FNGAAnimGraphConnectionDrawingPolicy(int32 InBackLayerID, int32 InFrontLayerID, float ZoomFactor, const FSlateRect& InClippingRect, FSlateWindowElementList& InDrawElements, UEdGraph* InGraphObj, TSharedPtr<FNGAGraphPinConnectionFactoryPayLoadData> InPayLoadData)
 		:FAnimGraphConnectionDrawingPolicy(InBackLayerID, InFrontLayerID, ZoomFactor, InClippingRect, InDrawElements, InGraphObj)
 		, MyPayLoadData(InPayLoadData)
-		, MySchema(static_cast<const UAnimationGraphSchema*>(InGraphObj->GetSchema()))
+		, MyGraphObject(InGraphObj)
 	{
 	}
 
@@ -40,7 +39,4 @@ public:
 	virtual void DrawConnection(int32 LayerId, const FVector2D& Start, const FVector2D& End, const FConnectionParams& Params) override;
 
 	void DelayDrawPreviewConnector();
-
-private:
-
 };

@@ -2,7 +2,7 @@
 
 #pragma once
 
-#ifndef NGA_With_MatDrawPolicy_API
+#ifndef NGA_WITH_ENGINE_CPP
 
 #include "MaterialGraphConnectionDrawingPolicy.h"
 #include "MaterialGraph/MaterialGraph.h"

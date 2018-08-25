@@ -4,8 +4,10 @@
 #include "NodeHelper.h"
 
 #include "CoreMinimal.h"
+#include "Algo/Reverse.h"
 
 #include "EdGraphNode_Comment.h"
+#include "EdGraph/EdGraph.h"
 
 #include "GraphEditorSettings.h"
 #include "NodeGraphAssistantConfig.h"
@@ -70,6 +72,76 @@ TArray<UEdGraphNode*> FNodeHelper::GetLinkedNodes(TArray<UEdGraphNode*> SourceNo
 	}
 
 	return nodesToReturn;
+}
+
+
+FVector2D FNodeHelper::GetSplinePointDistanceIfClose(FVector2D SplineStart, FVector2D SplineEnd, FVector2D PointPosition, const UGraphEditorSettings* Settings)
+{
+	FVector2D P0 = SplineStart;
+	FVector2D P1 = SplineEnd;
+	FVector2D SplineTangent;
+
+	const FVector2D DeltaPos = P1 - P0;
+	const bool bGoingForward = DeltaPos.X >= 0.0f;
+	const float ClampedTensionX = FMath::Min<float>(FMath::Abs<float>(DeltaPos.X), bGoingForward ? Settings->ForwardSplineHorizontalDeltaRange : Settings->BackwardSplineHorizontalDeltaRange);
+	const float ClampedTensionY = FMath::Min<float>(FMath::Abs<float>(DeltaPos.Y), bGoingForward ? Settings->ForwardSplineVerticalDeltaRange : Settings->BackwardSplineVerticalDeltaRange);
+
+	if (bGoingForward)
+	{
+		SplineTangent = (ClampedTensionX * Settings->ForwardSplineTangentFromHorizontalDelta) + (ClampedTensionY * Settings->ForwardSplineTangentFromVerticalDelta);
+	}
+	else
+	{
+		SplineTangent = (ClampedTensionX * Settings->BackwardSplineTangentFromHorizontalDelta) + (ClampedTensionY * Settings->BackwardSplineTangentFromVerticalDelta);
+	}
+
+	const FVector2D P0Tangent = SplineTangent;
+	const FVector2D P1Tangent = SplineTangent;
+
+	bool bCloseToSpline = false;
+	{
+		// The curve will include the endpoints but can extend out of a tight bounds because of the tangents
+		// P0Tangent coefficient maximizes to 4/27 at a=1/3, and P1Tangent minimizes to -4/27 at a=2/3.
+		const float MaximumTangentContribution = 4.0f / 27.0f;
+		FBox2D Bounds(ForceInit);
+
+		Bounds += FVector2D(P0);
+		Bounds += FVector2D(P0 + MaximumTangentContribution * P0Tangent);
+		Bounds += FVector2D(P1);
+		Bounds += FVector2D(P1 - MaximumTangentContribution * P1Tangent);
+
+		bCloseToSpline = Bounds.ComputeSquaredDistanceToPoint(PointPosition) < 0.1;
+	}
+
+	if (bCloseToSpline)
+	{
+		// Find the closest approach to the spline
+		FVector2D ClosestPoint(ForceInit);
+		float ClosestDistanceSquared = FLT_MAX;
+
+		const int32 NumStepsToTest = 16;
+		const float StepInterval = 1.0f / (float)NumStepsToTest;
+		FVector2D Point1 = FMath::CubicInterp(P0, P0Tangent, P1, P1Tangent, 0.0f);
+		for (float TestAlpha = 0.0f; TestAlpha < 1.0f; TestAlpha += StepInterval)
+		{
+			const FVector2D Point2 = FMath::CubicInterp(P0, P0Tangent, P1, P1Tangent, TestAlpha + StepInterval);
+
+			const FVector2D ClosestPointToSegment = FMath::ClosestPointOnSegment2D(PointPosition, Point1, Point2);
+			const float DistanceSquared = (PointPosition - ClosestPointToSegment).SizeSquared();
+
+			if (DistanceSquared < ClosestDistanceSquared)
+			{
+				ClosestDistanceSquared = DistanceSquared;
+				ClosestPoint = ClosestPointToSegment;
+			}
+
+			Point1 = Point2;
+		}
+
+		return ClosestPoint - PointPosition;
+	}
+
+	return FVector2D(0,0);
 }
 
 
@@ -165,115 +237,172 @@ bool FNodeHelper::GetWirePointHitResult(const FArrangedWidget& ArrangedGraphPane
 	return false;
 }
 
-
-bool FNodeHelper::BypassNodes(TArray<UEdGraphNode*> selectedNodes)
+struct BypassPinInfo
 {
-	bool errorOccured = false;
+	UEdGraphPin* NodePin;
+	TArray<UEdGraphPin*> LinkedPins;
+	FORCEINLINE friend bool operator==(const BypassPinInfo& A, const BypassPinInfo& B) { return A.NodePin == B.NodePin && A.LinkedPins == B.LinkedPins; }
+};
 
-	for (auto selectedNode : selectedNodes)
+//todo,for each node block.
+bool FNodeHelper::BypassNodes(UEdGraph* EdGraph, TArray<UEdGraphNode*> TargetNodes, bool ForceBypass, bool ForceKeepNode)
+{
+	TargetNodes.Sort([](UEdGraphNode& A, UEdGraphNode& B) {return A.NodePosY < B.NodePosY; });
+	TArray<BypassPinInfo> bypassPinInfosInput;
+	TArray<BypassPinInfo> bypassPinInfosOutput;
+
+	for (auto targetNode : TargetNodes)
 	{
-		if (!selectedNode)
+		for (auto targetNodePin : targetNode->Pins)
 		{
-			continue;
-		}
-
-		TArray<UEdGraphPin*> inputPins;
-		TArray<UEdGraphPin*> outputPins;
-		for (int i = 0; i < selectedNode->Pins.Num(); i++)
-		{
-			auto pin = selectedNode->Pins[i];
-			if (pin->LinkedTo.Num() > 0)
+			TArray<UEdGraphPin*> targetNodePinLinkOut;
+			for (auto targetNodePinLinkedto : targetNodePin->LinkedTo)
 			{
-				if (pin->Direction == EGPD_Input)
+				if (!TargetNodes.Contains(targetNodePinLinkedto->GetOwningNode()))
 				{
-					inputPins.Add(pin);
-				}
-				else if (pin->Direction == EGPD_Output)
-				{
-					outputPins.Add(pin);
+					targetNodePinLinkOut.Add(targetNodePinLinkedto);
 				}
 			}
-		}
-		if (inputPins.Num() == 0 || outputPins.Num() == 0)
-		{
-			continue;
-		}
-
-		if (inputPins.Num() == outputPins.Num())
-		{
-			for (int i = 0; i < inputPins.Num(); i++)
+			if (targetNodePinLinkOut.Num() > 0)
 			{
-				if (inputPins[i]->LinkedTo.Num() == 1)
+				targetNodePinLinkOut.Sort([](UEdGraphPin& A, UEdGraphPin& B) {return A.GetOwningNode()->NodePosY > B.GetOwningNode()->NodePosY; });
+				if (targetNodePin->Direction == EGPD_Input)
 				{
-					if (!TryBypassOneToNConnection(inputPins[i]->LinkedTo[0], inputPins[i], outputPins[i], outputPins[i]->LinkedTo))
-					{
-						errorOccured = true;
-					}
+					bypassPinInfosInput.Add({ targetNodePin ,targetNodePinLinkOut });
 				}
-				else if (outputPins[i]->LinkedTo.Num() == 1)
+				else if (targetNodePin->Direction == EGPD_Output)
 				{
-					if (!TryBypassOneToNConnection(outputPins[i]->LinkedTo[0], outputPins[i], inputPins[i], inputPins[i]->LinkedTo))
-					{
-						errorOccured = true;
-					}
-				}
-				else
-				{
-					errorOccured = true;
-					continue;
+					bypassPinInfosOutput.Add({ targetNodePin ,targetNodePinLinkOut });
 				}
 			}
-		}
-		else
-		{
-			if (inputPins.Num() == 1 && inputPins[0]->LinkedTo.Num() == 1)
-			{
-				UEdGraphPin* aLinkedPin = inputPins[0]->LinkedTo[0];
-				for (int i = outputPins.Num() - 1; i > -1; i--)
-				{
-					if (!TryBypassOneToNConnection(aLinkedPin, inputPins[0], outputPins[i], outputPins[i]->LinkedTo))
-					{
-						errorOccured = true;
-					}
-				}
-			}
-			else if (outputPins.Num() == 1 && outputPins[0]->LinkedTo.Num() == 1)
-			{
-				UEdGraphPin* aLinkedPin = outputPins[0]->LinkedTo[0];
-				for (int i = inputPins.Num() - 1; i > -1; i--)
-				{
-					if (!TryBypassOneToNConnection(aLinkedPin, outputPins[0], inputPins[i], inputPins[i]->LinkedTo))
-					{
-						errorOccured = true;
-					}
-				}
-			}
-			else
-			{
-				errorOccured = true;
-				continue;
-			}
-		}
-
-		bool keepNode = false;
-		for (auto pin : selectedNode->Pins)
-		{
-			if (pin->LinkedTo.Num() > 0)
-			{
-				keepNode = true;
-				break;
-			}
-		}
-		if (!keepNode || GetDefault<UNodeGraphAssistantConfig>()->BypassNodeAnyway)
-		{
-			selectedNode->GetGraph()->RemoveNode(selectedNode);
 		}
 	}
-	if (errorOccured)
+	if (bypassPinInfosInput.Num() == 0 || bypassPinInfosOutput.Num() == 0)
 	{
-		return false;
+		for (auto bypassInput : bypassPinInfosInput)
+		{
+			for (auto bypassInputPin : bypassInput.LinkedPins)
+			{
+				bypassInputPin->BreakLinkTo(bypassInput.NodePin);
+			}
+		}
+		for (auto bypassOutput : bypassPinInfosOutput)
+		{
+			for (auto bypassOutputPin : bypassOutput.LinkedPins)
+			{
+				bypassOutputPin->BreakLinkTo(bypassOutput.NodePin);
+			}
+		}
+		if (!ForceKeepNode)
+		{
+			for (auto targetNode : TargetNodes)
+			{
+				EdGraph->RemoveNode(targetNode);
+			}
+		}
+		return true;
 	}
-	return true;
+
+	//if one side is single pin,connect it to all other side pin.
+	//if neither side is single pin,connect one by one.
+	//reverse,so top pin will be last.
+	bool isOneToMultiBypass = bypassPinInfosInput.Num() == 1 || bypassPinInfosOutput.Num() == 1;
+	if (isOneToMultiBypass)
+	{
+		Algo::Reverse(bypassPinInfosInput);
+		Algo::Reverse(bypassPinInfosOutput);
+	}
+
+	TArray<BypassPinInfo> pinInfosInput = bypassPinInfosInput;
+	TArray<BypassPinInfo> pinInfosOutput = bypassPinInfosOutput;
+	//first pass,bypass connectible,ignore force bypass.
+	for (auto pinInfoInput : pinInfosInput)
+	{
+		for (auto pinInfoOutput : pinInfosOutput)
+		{
+			const ECanCreateConnectionResponse Response = EdGraph->GetSchema()->CanCreateConnection(pinInfoInput.LinkedPins[0], pinInfoOutput.LinkedPins[0]).Response;
+			if (Response != CONNECT_RESPONSE_DISALLOW && Response != CONNECT_RESPONSE_MAKE_WITH_CONVERSION_NODE)
+			{
+				bypassPinInfosInput.Remove(pinInfoInput);
+				bypassPinInfosOutput.Remove(pinInfoOutput);
+
+				for (auto inputLink : pinInfoInput.LinkedPins)
+				{
+					for (auto outputlink : pinInfoOutput.LinkedPins)
+					{
+						pinInfoInput.NodePin->BreakLinkTo(inputLink);
+						pinInfoOutput.NodePin->BreakLinkTo(outputlink);
+						UEdGraphNode* linkSourcePinNode = inputLink->GetOwningNode();
+						UEdGraphNode* linkTargetPinNode = outputlink->GetOwningNode();
+						EdGraph->GetSchema()->TryCreateConnection(inputLink, outputlink);
+						linkSourcePinNode->NodeConnectionListChanged();
+						linkTargetPinNode->NodeConnectionListChanged();
+					}
+				}
+
+				if (!isOneToMultiBypass)
+				{
+					pinInfosOutput.Remove(pinInfoOutput);
+					break;
+				}
+			}
+		}
+	}
+
+	//todo,how to deal with multi to one auto conversion
+	bool isMultiToOneConversion = isOneToMultiBypass && bypassPinInfosOutput.Num() == 1;
+	if (isMultiToOneConversion)
+	{
+		Algo::Reverse(bypassPinInfosInput);
+		Algo::Reverse(bypassPinInfosOutput);
+	}
+	pinInfosInput = bypassPinInfosInput;
+	pinInfosOutput = bypassPinInfosOutput;
+	//second pass,bypass possible auto conversion pin,or force bypass.
+	for (auto pinInfoInput : pinInfosInput)
+	{
+		for (auto pinInfoOutput : pinInfosOutput)
+		{
+			const ECanCreateConnectionResponse Response = EdGraph->GetSchema()->CanCreateConnection(pinInfoInput.LinkedPins[0], pinInfoOutput.LinkedPins[0]).Response;
+			if (ForceBypass || Response != CONNECT_RESPONSE_DISALLOW)
+			{
+				bypassPinInfosInput.Remove(pinInfoInput);
+				bypassPinInfosOutput.Remove(pinInfoOutput);
+
+				for (auto inputLink : pinInfoInput.LinkedPins)
+				{
+					for (auto outputlink : pinInfoOutput.LinkedPins)
+					{
+						pinInfoInput.NodePin->BreakLinkTo(inputLink);
+						pinInfoOutput.NodePin->BreakLinkTo(outputlink);
+						UEdGraphNode* linkSourcePinNode = inputLink->GetOwningNode();
+						UEdGraphNode* linkTargetPinNode = outputlink->GetOwningNode();
+						EdGraph->GetSchema()->TryCreateConnection(inputLink, outputlink);
+						linkSourcePinNode->NodeConnectionListChanged();
+						linkTargetPinNode->NodeConnectionListChanged();
+					}
+				}
+
+				if (!isOneToMultiBypass || isMultiToOneConversion)
+				{
+					pinInfosOutput.Remove(pinInfoOutput);
+					break;
+				}
+			}
+		}
+	}
+
+	bool success = bypassPinInfosInput.Num() == 0 && bypassPinInfosOutput.Num() == 0;
+	if ((success || ForceBypass) && !ForceKeepNode)
+	{
+		for (auto targetNode : TargetNodes)
+		{
+			EdGraph->RemoveNode(targetNode);
+		}
+		return true;
+	}
+
+	return success;
 }
 
 
@@ -910,28 +1039,17 @@ bool FNodeHelper::RearrangeSelectedNodes_AIGraph(SGraphPanel* graphPanel, FIntPo
 }
 
 
-bool FNodeHelper::TryBypassOneToNConnection(UEdGraphPin* ALinkedPin, UEdGraphPin* APin, UEdGraphPin* BPin, TArray<UEdGraphPin*> BLinkedPins)
+TArray<TSharedRef<SGraphPin>> FNodeHelper::GetPins(TSharedRef<SGraphNode> GraphNode)
 {
-	for (auto bLinkedPin : BLinkedPins)
+	TArray<TSharedRef<SGraphPin>> retGraphPins;
+
+	TArray<TSharedRef<SWidget>> graphNodePinWidgets;
+	GraphNode->GetPins(graphNodePinWidgets);
+	for (auto graphNodePinWidget : graphNodePinWidgets)
 	{
-		const ECanCreateConnectionResponse Response = ALinkedPin->GetSchema()->CanCreateConnection(ALinkedPin, bLinkedPin).Response;
-		if (Response == CONNECT_RESPONSE_MAKE_WITH_CONVERSION_NODE || Response == CONNECT_RESPONSE_DISALLOW)
-		{
-			return false;
-		}
-
-		ALinkedPin->GetSchema()->TryCreateConnection(ALinkedPin, bLinkedPin);
-
-		if (ALinkedPin->GetOwningNodeUnchecked() && APin->GetOwningNodeUnchecked())
-		{
-			BreakSinglePinLink(ALinkedPin, APin);
-		}
-		if (BPin->GetOwningNodeUnchecked() && bLinkedPin->GetOwningNodeUnchecked())
-		{
-			BreakSinglePinLink(BPin, bLinkedPin);
-		}
+		retGraphPins.AddUnique(StaticCastSharedRef<SGraphPin>(graphNodePinWidget));
 	}
-	return true;
+	return retGraphPins;
 }
 
 //#pragma optimize("", on)

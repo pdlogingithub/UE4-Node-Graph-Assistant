@@ -2,7 +2,7 @@
 
 #pragma once
 
-#ifndef NGA_With_MatDrawPolicy_API
+#ifndef NGA_WITH_ENGINE_CPP
 
 #include "AnimationStateNodes/SGraphNodeAnimTransition.h"
 #include "AnimStateTransitionNode.h"

@@ -1,34 +1,84 @@
 // Copyright 2018 yangxiangyun
 // All Rights Reserved
 
+//check list
+//overridden function change
+//private module api change
+
 #pragma once
 
 #include "CoreMinimal.h"
 #include "EdGraphUtilities.h"
+#include "ConnectionDrawingPolicy.h"
+
+struct InsertNodePinInfo
+{
+	TWeakPtr<SGraphPin> InputPin;
+	FVector2D InputPinPosRelToCursor;
+	TWeakPtr<SGraphPin> OutputPin;
+	FVector2D OutputPinPosRelToCursor;
+};
+
+struct InsertableNodePinInfo
+{
+	float MinPinDist = 100;
+	FConnectionParams Params;
+	UEdGraphPin* InputPin = nullptr;
+	UEdGraphPin* OutputPin = nullptr;
+	FVector2D Pin1Pos;
+	FVector2D Pin1Tangent;
+	FVector2D Pin2Pos;
+	FVector2D Pin2Tangent;
+	FVector2D InputPinPos;
+	FVector2D OutputPinPos;
+};
 
 struct FNGAGraphPinConnectionFactoryPayLoadData
 {
-	FNGAGraphPinConnectionFactoryPayLoadData() { GraphPanel = nullptr; };
-	FPointerEvent MouseEvent;
-	SGraphPanel* GraphPanel;
-	TArray<UEdGraphPin*> DraggingPins;
-	TSet<TSharedRef<SWidget>> NodePins;
-	FGeometry NodeGeometry;
-	bool HasMouseUpAfterShiftDrag = false;
+	TWeakPtr<SGraphPanel> HoveredGraphPanel;
 
-	TSet<TSharedRef<SWidget>> autoConnectStartGraphPins;
-	TSet<TSharedRef<SWidget>> autoConnectEndGraphPins;
+	TWeakPtr<SGraphNode> HoveredNode;
+	TArray<UEdGraphPin*> DraggingPins;
+	TWeakPtr<SGraphPin> OutLazyConnectiblePin;
+
+	TArray<TWeakPtr<SGraphPin>> AutoConnectStartPins;
+	TArray<TWeakPtr<SGraphPin>> AutoConnectEndPins;
+
+	FVector2D NodeBoundMinRelToCursor;
+	FVector2D NodeBoundMaxRelToCursor;
+	TArray<InsertNodePinInfo> InsertNodePinInfos;
+	InsertableNodePinInfo OutInsertableNodePinInfo;
+
+	TArray<UEdGraphPin*> OutHoveredInputPins;
+	TArray<UEdGraphPin*> OutHoveredOutputPins;
+
+	float CursorDeltaSquared;
 };
+
 
 struct FNGAGraphPinConnectionFactory : public FGraphPanelPinConnectionFactory
 {
 public:
-
+	FNGAGraphPinConnectionFactory()
+	{
+		PayLoadData = MakeShareable(new FNGAGraphPinConnectionFactoryPayLoadData());
+	}
 	virtual FConnectionDrawingPolicy* CreateConnectionPolicy(const class UEdGraphSchema* Schema, int32 InBackLayerID, int32 InFrontLayerID, float ZoomFactor, const class FSlateRect& InClippingRect, class FSlateWindowElementList& InDrawElements, class UEdGraph* InGraphObj) const override;
 
-	void SetPayloadData(FNGAGraphPinConnectionFactoryPayLoadData InData);
-	void ResetPayloadData();
 
+	void SetLazyConnectPayloadData(TWeakPtr<SGraphNode> InHoveredNode, TArray<UEdGraphPin*> InDraggingPins);
+	void SetAutoConnectPayloadData(TArray<TWeakPtr<SGraphPin>> InAutoConnectStartPins, TArray<TWeakPtr<SGraphPin>> InAutoConnectEndPins);
+	void ResetLazyConnectPayloadData();
+	void ResetAutoConnectPayloadData();
+	void ResetInsertNodePayloadData();
 
-	FNGAGraphPinConnectionFactoryPayLoadData PayLoadData;
+	TWeakPtr<SGraphPin> GetLazyConnectiblePin()
+	{
+		return PayLoadData->OutLazyConnectiblePin;
+	}
+
+	TSharedPtr<FNGAGraphPinConnectionFactoryPayLoadData> PayLoadData;
 };
+
+
+//#define NGA_IMPLEMENT_CONNECTION_DRAW_POLICY(PolicyName,ParentPolicyName)\

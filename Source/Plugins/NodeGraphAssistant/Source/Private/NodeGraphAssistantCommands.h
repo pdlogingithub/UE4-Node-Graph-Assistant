@@ -27,6 +27,10 @@ public:
 	TSharedPtr< FUICommandInfo > SelectUpStreamNodes;
 	TSharedPtr< FUICommandInfo > CycleWireDrawStyle;
 	TSharedPtr< FUICommandInfo > ToggleMaterialGraphWireColor;
+	TSharedPtr< FUICommandInfo > ToggleAutoConnect;
+	TSharedPtr< FUICommandInfo > DuplicateNodeWithInput;
+	TSharedPtr< FUICommandInfo > ExchangeWires;
+	TSharedPtr< FUICommandInfo > ToggleInsertNode;
 
 	virtual void RegisterCommands() override;
 };
@@ -42,6 +46,10 @@ void FNodeGraphAssistantCommands::RegisterCommands()
 	UI_COMMAND(SelectUpStreamNodes, "Select upstream nodes", "Select all nodes connected to selected nodes' outputs", EUserInterfaceActionType::Button, FInputChord(EKeys::D, false, false, true, false));
 	UI_COMMAND(CycleWireDrawStyle, "Wire Style", "Cycle through connection wire drawing style", EUserInterfaceActionType::Button, FInputChord());
 	UI_COMMAND(ToggleMaterialGraphWireColor, "Wire color", "toggle wire color for material graph", EUserInterfaceActionType::Button, FInputChord());
+	UI_COMMAND(ToggleAutoConnect, "Auto Connect", "Automatically connect selected node's pin to adjacent node pins", EUserInterfaceActionType::ToggleButton, FInputChord());
+	UI_COMMAND(DuplicateNodeWithInput, "Duplicate Node With Input", "duplicate nodes and keep inputs", EUserInterfaceActionType::Button, FInputChord(EKeys::V, false, false, true, false));
+	UI_COMMAND(ExchangeWires, "Exchange Wires", "Exchange two selected wires", EUserInterfaceActionType::Button, FInputChord(EKeys::T, false, false, true, false));
+	UI_COMMAND(ToggleInsertNode, "Auto Insert", "Automatically insert dragging node to hovered wire.", EUserInterfaceActionType::ToggleButton, FInputChord());
 }
 
 #undef LOCTEXT_NAMESPACE
