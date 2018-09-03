@@ -47,10 +47,6 @@ hold down alt will suppress auto connect.
 13.Wire style: press tool bar button to cycle through wire style.  
 ![13](Resource/1.5/wire_style.gif)  
 
-
-—————————————————1.6 pending features———————————————————  
-
-
 14.Shake node off wire: Swing dragging nodes quicklly to bypass this node from wires.  
 ![14](Resource/1.6/shake_node_off_wire.gif)  
 
