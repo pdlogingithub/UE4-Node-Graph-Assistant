@@ -14,7 +14,7 @@
 #include "Version.h"
 
 
-IMPLEMENT_MODULE(NodeGraphAssistantModule, NodeGraphAssistantModule)
+IMPLEMENT_MODULE(NodeGraphAssistantModule, NodeGraphAssistant)
 
 void NodeGraphAssistantModule::StartupModule()
 {
