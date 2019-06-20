@@ -66,7 +66,7 @@ namespace UnrealBuildTool.Rules
             //some classes is not exported from engine, so when build with release engine it can not find the implementation.
             if (File.Exists(enginePath + "Source/Editor/GraphEditor/Private/DragConnection.cpp"))
             {
-                Definitions.Add("NGA_WITH_ENGINE_CPP");
+                PublicDefinitions.Add("NGA_WITH_ENGINE_CPP");
             }
             else
             {
