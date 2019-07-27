@@ -37,7 +37,7 @@ Or use the hotkey <kbd>Alt</kbd>+<kbd>A</kbd>, or <kbd>Alt</kbd>+<kbd>D</kbd>.
 ![10](Resource/1.4/select_linked.gif)
 
 11. Lazy connect: When dragging off of a pin, the wire will snap to the closest pin on the hovered node.  
-(Hold <kbd>Shift</kbd> and dragging over pins to batch connect.)  
+(Hold <kbd>Shift</kbd> and dragging over pins to batch connect.it may appears laggy if "live preview" button is on for material graph.)  
 ![11](Resource/1.5/lazy_connect.gif)
  
 12. Auto connect: When moving a node, its pins will align to surrounding connectible pins. Releasing mouse will commit connections.  
