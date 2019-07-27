@@ -57,6 +57,7 @@ Holding <kbd>Alt</kbd> will suppress auto connect.
 ![16](Resource/1.6/insert_node_on_wire.gif)
 
 17.  Exchange wires: Exchange two sets of wires with <kbd>Alt</kbd>+<kbd>T</kbd>  
+(cursor position will direct which wires to operate on if there are multiple plausible wire sets.)  
 ![17](Resource/1.6/exchange_wires.gif)
 
 Go to the editor preferences to see more settings.
