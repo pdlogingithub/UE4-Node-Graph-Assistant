@@ -30,6 +30,8 @@ Marketplace page: https://www.unrealengine.com/marketplace/node-graph-assistant
 8. Create node on wire: Right click on wire to create node on wire.  
 *also works for nodes created with hotkeys,for example,in material editor hold down "a" key and click on wire will create a add node on wire.  
 ![8](Resource/1.4/insert.gif)
+![81](Resource/insertnodehotkey.gif)
+
 
 9. Highlight wire: Left click to highlight wire, hold down shift to highlight multiple wires, middle mouse double click on pin to highlight all connected wires.  
 ![9](Resource/1.4/highlight.gif)
