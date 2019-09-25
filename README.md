@@ -20,7 +20,7 @@ Marketplace page: https://www.unrealengine.com/marketplace/node-graph-assistant
 ![5](Resource/1.4/rearrange.gif)
 
 6.Connect nodes: Press <kbd>Alt</kbd>+<kbd>C</kbd> to auto connect all plausible pins withing selected nodes.  
-![6](Resource/1.7/connectnodes.gif)  
+![6](Resource/connectnodes.gif)  
 
 7. Bypass node: Press <kbd>Alt</kbd>+<kbd>X</kbd> will remove selected nodes on wire.  
 *additionally hold down <kbd>Shift</kbd> will keep bypassed nodes in place without removing them.  
