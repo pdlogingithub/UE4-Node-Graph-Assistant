@@ -5,9 +5,6 @@ Forum support page: https://forums.unrealengine.com/unreal-engine/marketplace/14
 
 中文说明：https://github.com/pdlogingithub/UE4-Node-Graph-Assistant/blob/master/Doc/README_ch.md  
 
-1. Right click multi-connect: right click on pin to multi-connect,right click on panel to cancel,you can also pan the graph when dragging a wire.  
-![1](Resource/1.4/drag_pan_multi-connect.gif)
-
 2. Left click multi-connect: Click on pin to start free panning,zooming and multi-connecting.  
 ![2](Resource/1.4/click_pan_multi-connect.gif)
 
