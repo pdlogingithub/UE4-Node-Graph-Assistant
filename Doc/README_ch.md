@@ -4,7 +4,7 @@
 商城页面: https://www.unrealengine.com/marketplace/node-graph-assistant  
 
 1.左键自由连接。  
-*可设置为只连接一次
+*可设置为只连接一次。  
 ![2](../Resource/1.4/click_pan_multi-connect.gif)  
 
 2.Shift键自由连接。  
