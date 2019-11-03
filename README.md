@@ -6,17 +6,17 @@ Forum support page: https://forums.unrealengine.com/unreal-engine/marketplace/14
 中文说明：https://github.com/pdlogingithub/UE4-Node-Graph-Assistant/blob/master/Doc/README_ch.md  
 
 1. Left click multi-connect: Click on pin to start free panning,zooming and multi-connecting.  
-*configurable for one time connection.
-![2](Resource/1.4/click_pan_multi-connect.gif)
+*configurable for one time connection.  
+![2](Resource/1.4/click_pan_multi-connect.gif)  
 
 2. Shift click multi-connect: When dragging a wire, hold down shift to start free panning,zooming and multi-connecting.  
-![3](Resource/1.4/shift_pan_multi-connect.gif)
+![3](Resource/1.4/shift_pan_multi-connect.gif)  
 
 3. Dupli-wire: Shift click or drag on pin to duplicate wire.  
-![4](Resource/1.4/dupli_wire.gif)
+![4](Resource/1.4/dupli_wire.gif)  
 
 4. Rearrange nodes: Press <kbd>Alt</kbd>+<kbd>R</kbd> to rearrange nodes, most suitable for small block of nodes.   
-![5](Resource/1.4/rearrange.gif)
+![5](Resource/1.4/rearrange.gif)  
 
 5.Connect nodes: Press <kbd>Alt</kbd>+<kbd>C</kbd> to auto connect all plausible pins withing selected nodes.  
 ![6](Resource/connectnodes.gif)  
