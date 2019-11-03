@@ -17,7 +17,7 @@
 ![5](../Resource/1.4/rearrange.gif)  
 
 5.一键连接节点: 按下<kbd>Alt</kbd>+<kbd>C</kbd> 连接当前选中节点所有可连的引脚。  
-![6](Resource/connectnodes.gif)  
+![6](../Resource/connectnodes.gif)  
 
 6.溶解节点:  <kbd>Alt</kbd>+<kbd>X</kbd>
 *按住<kbd>Shift</kbd>会保留被溶解的节点。   
@@ -27,7 +27,7 @@
 7.在线创建节点。  
 *对快捷键创建的节点也起作用。  
 ![7](../Resource/1.4/insert.gif)  
-![81](Resource/insertnodehotkey.gif)  
+![81](../Resource/insertnodehotkey.gif)  
 
 8.连线高亮：  
 *按住<kbd>Shift</kbd>键可高亮多条连线。  
