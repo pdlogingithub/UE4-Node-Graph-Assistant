@@ -1,4 +1,4 @@
-// Copyright 2018 yangxiangyun
+// Copyright 2019 yangxiangyun
 // All Rights Reserved
 
 #pragma once
@@ -50,6 +50,8 @@ struct FNodeHelper
 	static bool RearrangeSelectedNodes_AIGraph(SGraphPanel* graphPanel, FIntPoint Spacing, float SpacingRelax);
 
 	static TArray<TSharedRef<SGraphPin>> GetPins(TSharedRef<SGraphNode> GraphNode);
+
+	static void GetAutoConnectablePins(const UEdGraphSchema* GraphSchema, float MaxConnectionDistance, TArray<TSharedRef<SGraphNode>> InSourceNodes, TArray<TSharedRef<SGraphNode>> InTargetNodes, TArray<TWeakPtr<SGraphPin>>& OutStartPins, TArray<TWeakPtr<SGraphPin>>& OutEndPins);
 
 private:
 };

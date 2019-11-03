@@ -1,4 +1,4 @@
-// Copyright 2018 yangxiangyun
+// Copyright 2019 yangxiangyun
 // All Rights Reserved
 
 #include "NodeHelper.h"
@@ -615,10 +615,10 @@ TArray<TArray<UEdGraphNode*>> FNodeHelper::CalculateNodeshierarchy(TArray<UEdGra
 }
 
 
-//	       |node|\		
+//	       |node|\
 //	|node|-|node|-|node|-|node| 
 //	|node|-|node|-|node|	
-//	       |node|/	
+//	       |node|/
 //  col0	col1   col2   col3
 bool FNodeHelper::RearrangeSelectedNodes(SGraphPanel* graphPanel, FIntPoint Spacing, float SpacingRelax)
 {
@@ -1050,6 +1050,125 @@ TArray<TSharedRef<SGraphPin>> FNodeHelper::GetPins(TSharedRef<SGraphNode> GraphN
 		retGraphPins.AddUnique(StaticCastSharedRef<SGraphPin>(graphNodePinWidget));
 	}
 	return retGraphPins;
+}
+
+void FNodeHelper::GetAutoConnectablePins(const UEdGraphSchema* GraphSchema, float MaxConnectionDistance, TArray<TSharedRef<SGraphNode>> InSourceNodes, TArray<TSharedRef<SGraphNode>> InTargetNodes, TArray<TWeakPtr<SGraphPin>>& OutStartPins, TArray<TWeakPtr<SGraphPin>>& OutEndPins)
+{
+	OutStartPins.Empty();
+	OutEndPins.Empty();
+
+	//cull distant node
+	if (MaxConnectionDistance > 0)
+	{
+		TArray<TSharedRef<SGraphNode>> connectableTargetNodes;
+		for (auto sourceNode : InSourceNodes)
+		{
+			for (auto targetNode : InTargetNodes)
+			{
+				if (!connectableTargetNodes.Contains(targetNode))
+				{
+					if (FBox2D(sourceNode->GetPosition() - FVector2D(MaxConnectionDistance, MaxConnectionDistance), sourceNode->GetPosition() + sourceNode->GetDesiredSize() + FVector2D(MaxConnectionDistance, MaxConnectionDistance)).Intersect(FBox2D(targetNode->GetPosition(), targetNode->GetPosition() + targetNode->GetDesiredSize())))
+					{
+						connectableTargetNodes.Add(targetNode);
+					}
+				}
+			}
+		}
+		InTargetNodes = connectableTargetNodes;
+	}
+	else
+	{
+		MaxConnectionDistance = FLT_MAX;
+	}
+
+	//try to connect pin from top to bottom
+	InSourceNodes.Sort([](TSharedRef<SGraphNode> A, TSharedRef<SGraphNode> B) {return A->GetPosition().Y < B->GetPosition().Y; });
+	InTargetNodes.Sort([](TSharedRef<SGraphNode> A, TSharedRef<SGraphNode> B) {return A->GetPosition().Y < B->GetPosition().Y; });
+
+	TArray<float> startEndPinDist;
+
+	for (auto sourceNode : InSourceNodes)
+	{
+		for (auto sourceNodePin : FNodeHelper::GetPins(sourceNode))
+		{
+			float closestDistTotargetPin = MaxConnectionDistance;
+			TSharedRef<SGraphPin> closestTargetPin = sourceNodePin;
+			for (auto targetNode : InTargetNodes)
+			{
+				bool isConnected = false;
+				for (auto pinIsConnected : FNodeHelper::GetPins(sourceNode))
+				{
+					for (auto linkToIsConnected : pinIsConnected->GetPinObj()->LinkedTo)
+					{
+						if (linkToIsConnected->GetOwningNode() == targetNode->GetNodeObj())
+						{
+							isConnected = true;
+							break;
+						}
+					}
+				}
+				if (isConnected)
+				{
+					continue;
+				}
+
+				for (auto targetNodePin : FNodeHelper::GetPins(targetNode))
+				{
+					if (sourceNodePin->GetDirection() != targetNodePin->GetDirection())
+					{
+						FVector2D sourceNodePinPos = sourceNodePin->GetNodeOffset() + sourceNode->GetPosition();
+						sourceNodePinPos = sourceNodePinPos + FVector2D(sourceNodePin->GetDirection() == EEdGraphPinDirection::EGPD_Output ? sourceNodePin->GetDesiredSize().X : 0, sourceNodePin->GetDesiredSize().Y / 2);
+						FVector2D targetNodePinPos = targetNodePin->GetNodeOffset() + targetNode->GetPosition();
+						targetNodePinPos = targetNodePinPos + FVector2D(targetNodePin->GetDirection() == EEdGraphPinDirection::EGPD_Output ? targetNodePin->GetDesiredSize().X : 0, targetNodePin->GetDesiredSize().Y / 2);
+
+						if (sourceNodePin->GetDirection() == EEdGraphPinDirection::EGPD_Input && targetNodePinPos.X > sourceNodePinPos.X)
+						{
+							continue;
+						}
+						if (sourceNodePin->GetDirection() == EEdGraphPinDirection::EGPD_Output && targetNodePinPos.X < sourceNodePinPos.X)
+						{
+							continue;
+						}
+
+						float pinDist = FVector2D::Distance(sourceNodePinPos, targetNodePinPos);
+						if (pinDist < closestDistTotargetPin)
+						{
+							//seems CanCreateConnection slow down performance,so make it last.
+							if (GraphSchema->CanCreateConnection(sourceNodePin->GetPinObj(), targetNodePin->GetPinObj()).Response == ECanCreateConnectionResponse::CONNECT_RESPONSE_MAKE)
+							{
+								closestDistTotargetPin = pinDist;
+								closestTargetPin = targetNodePin;
+							}
+						}
+					}
+				}
+			}
+			if (closestDistTotargetPin < MaxConnectionDistance)
+			{
+				//if target pin was already matched with other source pin,replace it if it's closer.
+				if (OutEndPins.Contains(closestTargetPin))
+				{
+					int index = OutEndPins.Find(closestTargetPin);
+					if (closestDistTotargetPin < startEndPinDist[index])
+					{
+						OutStartPins.RemoveAt(index);
+						OutEndPins.RemoveAt(index);
+						startEndPinDist.RemoveAt(index);
+
+						OutStartPins.Add(TWeakPtr<SGraphPin>(sourceNodePin));
+						OutEndPins.Add(TWeakPtr<SGraphPin>(closestTargetPin));
+						startEndPinDist.Add(closestDistTotargetPin);
+					}
+				}
+				else
+				{
+					OutStartPins.Add(TWeakPtr<SGraphPin>(sourceNodePin));
+					OutEndPins.Add(TWeakPtr<SGraphPin>(closestTargetPin));
+					startEndPinDist.Add(closestDistTotargetPin);
+				}
+			}
+		}
+	}
 }
 
 //#pragma optimize("", on)

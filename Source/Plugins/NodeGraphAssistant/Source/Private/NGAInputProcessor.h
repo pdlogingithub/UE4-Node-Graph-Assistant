@@ -1,17 +1,21 @@
-// Copyright 2018 yangxiangyun
+// Copyright 2019 yangxiangyun
 // All Rights Reserved
 
 #pragma once
 
 #include "Framework/Application/IInputProcessor.h"
 #include "CoreMinimal.h"
+#include "Version.h"
 
-#include "SGraphPanel.h"
-#include "HardwareCursor.h"
 #include "Application/ThrottleManager.h"
+#include "SGraphPanel.h"
+
+#if ENGINE_MINOR_VERSION < 23
+#include "HardwareCursor.h"
+#endif
 
 #include "NodeGraphAssistantCommands.h"
-#include "Style/NGAGraphPinConnectionFactory.h"
+#include "NGAGraphPinConnectionFactory.h"
 
 
 enum EGraphObjType
@@ -27,18 +31,27 @@ enum EGraphObjType
 
 struct FNGAEventContex
 {
-	bool IsDraggingConnection = false;
-	bool IsCursorInsidePanel = false;
-	bool IsCursorOnPanelEmptySpace = false;
 	bool IsClickGesture = false;
 	bool IsDoubleClickGesture = false;
+
+	bool IsCursorInsidePanel = false;
+	bool IsCursorOnPanelEmptySpace = false;
+
+	bool IsDraggingConnection = false;
+	bool IsDragDropping = false;
+	bool IsDraggingNode = false;
+	bool IsPanning = false;
+	bool IsBoxSelecting = false;
+	
 	TSharedPtr<SGraphPanel> GraphPanel = nullptr; //hovered graph panel.
 	FGeometry PanelGeometry;
 	TSharedPtr<SGraphNode> GraphNode = nullptr; //hovered graph node.
+	TSharedPtr<SGraphNode> CommentNode = nullptr; 
 	FGeometry NodeGeometry;
 	bool IsNodeTitle = false;
 	TSharedPtr<SGraphPin> GraphPin = nullptr; //hovered graph pin.
 	FGeometry PinGeometry;
+	bool IsInPinEditableBox = false; //[editable text pin]
 	EGraphObjType GraphType = EGT_Default;
 };
 
@@ -86,7 +99,9 @@ public:
 	virtual bool HandleMouseMoveEvent(FSlateApplication& SlateApp, const FPointerEvent& MouseEvent) override;
 	virtual bool HandleKeyDownEvent(FSlateApplication& SlateApp, const FKeyEvent& InKeyEvent) override;
 	virtual bool HandleKeyUpEvent(FSlateApplication& SlateApp, const FKeyEvent& InKeyEvent) override;
-
+#if ENGINE_MINOR_VERSION >= 21
+	virtual bool HandleMouseButtonDoubleClickEvent(FSlateApplication& SlateApp, const FPointerEvent& MouseEvent) override;
+#endif
 
 	FNGAEventContex InitEventContex(FSlateApplication& SlateApp, const FPointerEvent& MouseEvent);
 
@@ -114,7 +129,6 @@ public:
 	bool IsCutoffButton(const FKey& Key) const;
 	bool IsCutoffButtonDown(const FPointerEvent& MouseEvent) const;
 
-
 	FNGAEventReply TryProcessAsDupliWireEvent(FSlateApplication& SlateApp, const FPointerEvent& MouseEvent, const FNGAEventContex& Ctx);
 	FNGAEventReply TryProcessAsBeginDragNPanEvent(FSlateApplication& SlateApp, const FPointerEvent& MouseEvent, const FNGAEventContex& Ctx);
 	FNGAEventReply TryProcessAsBeingDragNPanEvent(FSlateApplication& SlateApp, const FPointerEvent& MouseEvent, const FNGAEventContex& Ctx);
@@ -136,7 +150,7 @@ public:
 	FNGAEventReply TryProcessAsShakeNodeOffWireEvent(FSlateApplication& SlateApp, const FPointerEvent& MouseEvent, FNGAEventContex Ctx);
 	FNGAEventReply TryProcessAsInsertNodeMouseMoveEvent(FSlateApplication& SlateApp, const FPointerEvent& MouseEvent, const FNGAEventContex& Ctx);
 	FNGAEventReply TryProcessAsEndInsertNodeEvent(FSlateApplication& SlateApp, const FPointerEvent& MouseEvent, const FNGAEventContex& Ctx);
-
+	FNGAEventReply TryProcessAsCreateNodeOnWireWithHotkeyEvent(FSlateApplication& SlateApp, const FPointerEvent& MouseEvent, const FNGAEventContex& Ctx);
 
 	void BypassSelectedNodes(bool ForceKeepNode);
 	void RearrangeNodes();
@@ -144,6 +158,7 @@ public:
 	void CycleWireDrawStyle();
 	void DupliNodeWithWire();
 	void ExchangeWire(NGAInputProcessor* InputProcessor);
+	void ConnectNodes();
 
 private:
 	struct ShakeOffNodeTrackigInfo
@@ -168,6 +183,7 @@ private:
 	bool BlockNextClick = false;
 
 	TWeakPtr<SGraphNode> NodeBeingDrag;
+	TWeakPtr<SGraphNode> CommentNodeBeingDrag;
 
 	DECLARE_DELEGATE_RetVal(bool, NGADeferredEventDele)
 	TArray<NGADeferredEventDele> TickEventListener;
@@ -183,5 +199,11 @@ private:
 	//for setting input schem in editor ui;
 	TSharedPtr<FUICommandList> UICommandList;
 
-	TSharedPtr<FHardwareCursor> CutOffCusor;
+#if ENGINE_MINOR_VERSION > 22
+	void* CusorResource_Scissor;
+#else
+	TSharedPtr<FHardwareCursor> CusorResource_Scissor;
+#endif
+
+	int32 PressedCharKey = 0;
 };

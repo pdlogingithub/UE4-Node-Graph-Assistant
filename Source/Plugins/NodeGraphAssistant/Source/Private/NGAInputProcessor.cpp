@@ -1,4 +1,4 @@
-// Copyright 2018 yangxiangyun
+// Copyright 2019 yangxiangyun
 // All Rights Reserved
 
 #include "NGAInputProcessor.h"
@@ -7,16 +7,15 @@
 #ifdef NGA_WITH_ENGINE_CPP 
 #include "DragConnection.cpp"
 #else
-#include "_ImportPrivateEngineAPI/DragConnection.cpp"
+#include "EngineCppFiles/DragConnection.cpp"
 #endif
-
-#include "Version.h"
 
 #include "NodeGraphAssistantConfig.h"
 #include "NodeHelper.h"
 
 #include "SlateApplication.h"
 #include "SGraphPanel.h"
+#include "SGraphEditorImpl.h"
 #include "Editor.h"
 #include "EditorStyleSet.h"
 #include "EdGraph.h"
@@ -40,7 +39,7 @@
 #include "K2Node_EditablePinBase.h"
 
 
-//#pragma optimize("", off)
+#pragma optimize("", off)
 
 NGAInputProcessor::NGAInputProcessor()
 {
@@ -67,6 +66,10 @@ NGAInputProcessor::NGAInputProcessor()
 		FExecuteAction::CreateRaw(this, &NGAInputProcessor::RearrangeNodes));
 	UICommandList->MapAction(Commands.CycleWireDrawStyle,
 		FExecuteAction::CreateRaw(this, &NGAInputProcessor::CycleWireDrawStyle));
+	UICommandList->MapAction(Commands.BypassAndKeepNodes,
+		FExecuteAction::CreateRaw(this, &NGAInputProcessor::BypassSelectedNodes, true));
+	UICommandList->MapAction(Commands.ConnectNodes,
+		FExecuteAction::CreateRaw(this, &NGAInputProcessor::ConnectNodes));
 
 	UICommandList->MapAction(Commands.ToggleAutoConnect,
 		FExecuteAction::CreateLambda([] 
@@ -185,6 +188,8 @@ NGAInputProcessor::~NGAInputProcessor()
 	UICommandList->UnmapAction(FNodeGraphAssistantCommands::Get().DuplicateNodeWithInput);
 	UICommandList->UnmapAction(FNodeGraphAssistantCommands::Get().ExchangeWires);
 	UICommandList->UnmapAction(FNodeGraphAssistantCommands::Get().ToggleInsertNode);
+	UICommandList->UnmapAction(FNodeGraphAssistantCommands::Get().BypassAndKeepNodes);
+	UICommandList->UnmapAction(FNodeGraphAssistantCommands::Get().ConnectNodes);
 	UICommandList.Reset();
 	FNodeGraphAssistantCommands::Unregister(); 
 
@@ -277,11 +282,20 @@ FNGAEventContex NGAInputProcessor::InitEventContex(FSlateApplication& SlateApp, 
 					ctx.NodeGeometry = widgetsUnderCursor.Widgets[i].Geometry;
 				}
 			}
+			else
+			{
+				ctx.CommentNode = StaticCastSharedRef<SGraphNode>(widgetsUnderCursor.Widgets[i].Widget);
+			}
 		}
 
 		if (widgetName == "SLevelOfDetailBranchNode")
 		{
 			ctx.IsNodeTitle = true;
+		}
+
+		if (widgetName.Contains("EditableText") || widgetName.Contains("NumericEntryBox"))
+		{
+			ctx.IsInPinEditableBox = true;
 		}
 
 		if (widgetName.Contains("GraphPin") || widgetName.Contains("BehaviorTreePin") || widgetName.Contains("OutputPin") || widgetName.Contains("SEnvironmentQueryPin"))
@@ -561,10 +575,10 @@ FNGAEventReply NGAInputProcessor::TryProcessAsDupliWireEvent(FSlateApplication& 
 //by default panning is bypassed when dragging connection(slate.cpp 5067 4.18), to be able to pan while dragging,need to manually route the pointer down event to graph panel.
 FNGAEventReply NGAInputProcessor::TryProcessAsBeginDragNPanEvent(FSlateApplication& SlateApp, const FPointerEvent& MouseEvent, const FNGAEventContex& Ctx)
 {
-	if (Ctx.IsCursorInsidePanel && Ctx.IsDraggingConnection && IsPanningButton(MouseEvent.GetEffectingButton()) && MouseEvent.IsMouseButtonDown(MouseEvent.GetEffectingButton()))
+	if (Ctx.IsCursorInsidePanel && (Ctx.IsDraggingConnection || NodeBeingDrag.IsValid() || CommentNodeBeingDrag.IsValid()) && IsPanningButton(MouseEvent.GetEffectingButton()) && MouseEvent.IsMouseButtonDown(MouseEvent.GetEffectingButton()))
 	{
 		//make sure no widget captured the mouse so we can pan now.
-		if (Ctx.GraphPanel.IsValid() && !SlateApp.HasUserMouseCapture(MouseEvent.GetUserIndex()))
+		if (Ctx.GraphPanel.IsValid() && (NodeBeingDrag.IsValid() || CommentNodeBeingDrag.IsValid() ||!SlateApp.HasUserMouseCapture(MouseEvent.GetUserIndex())))
 		{
 			//this hand made event exclude left mouse button as pressed,so node panel wont display software cursor as "up-down" icon(node panel thinks we are going to zoom,but we are not).
 			TSet<FKey> keys;
@@ -612,7 +626,7 @@ FNGAEventReply NGAInputProcessor::TryProcessAsBeginDragNPanEvent(FSlateApplicati
 //update visual elements(wire.cursor icon...) for drag and panning,or they will be at mismatched position.
 FNGAEventReply NGAInputProcessor::TryProcessAsBeingDragNPanEvent(FSlateApplication& SlateApp, const FPointerEvent& MouseEvent, const FNGAEventContex& Ctx)
 {
-	if (Ctx.IsDraggingConnection && IsPanningButtonDown(MouseEvent))
+	if ((Ctx.IsDraggingConnection || NodeBeingDrag.IsValid() || CommentNodeBeingDrag.IsValid()) && IsPanningButtonDown(MouseEvent))
 	{
 		//when dragging and panning towards outside of the panel fast,the mouse move event will be picked up by another widget rather than graph panel.
 		//check if still inside same panel.
@@ -626,6 +640,7 @@ FNGAEventReply NGAInputProcessor::TryProcessAsBeingDragNPanEvent(FSlateApplicati
 		}
 		
 		//when cursor is getting close to the edge of the panel,drag operation will send deferred pan request to accelerate pan speed, no need that.
+		//do not check if it is outside of rect,doing correction anyway,or problem will occurs.
 		LastGraphCursorScreenPosClamped = FVector2D
 		(
 			FMath::Clamp(LastGraphCursorScreenPosClamped.X, LastPanelScreenSpaceRect.Left + 40.0f, LastPanelScreenSpaceRect.Right - 40.0f),
@@ -644,14 +659,14 @@ FNGAEventReply NGAInputProcessor::TryProcessAsBeingDragNPanEvent(FSlateApplicati
 		FPointerEvent mouseEvent(
 			MouseEvent.GetPointerIndex(),
 			LastGraphCursorScreenPosClamped, //[drag-pan]use clamped position,so deferred pan amount will be 0.
-			LastGraphCursorScreenPosClamped,
+			LastGraphCursorScreenPosClamped- MouseEvent.GetCursorDelta(),
 			MouseEvent.GetCursorDelta(),//original delta is needed for panning.
 			keys,
 			FModifierKeysState()
 		);
 
 		//call OnDragOver with correct screen space software cursor position to update connection wire endpoint position.
-		if (Ctx.GraphPanel.IsValid())
+		if (Ctx.GraphPanel.IsValid() && Ctx.IsDraggingConnection)
 		{
 			Ctx.GraphPanel->OnDragOver(Ctx.PanelGeometry, FDragDropEvent(mouseEvent, SlateApp.GetDragDroppingContent()));
 		}
@@ -662,15 +677,18 @@ FNGAEventReply NGAInputProcessor::TryProcessAsBeingDragNPanEvent(FSlateApplicati
 		{
 			const_cast<FPointerEvent&>(MouseEvent) = mouseEvent;
 		}
-
 		SlateApp.SetCursorPos(LastGraphCursorScreenPosClamped);
+
 		if (SlateApp.GetPlatformCursor().IsValid())
 		{
 			SlateApp.GetPlatformCursor()->Show(false);
 			DidIHideTheCursor = true;
 		}
 
-		SlateApp.GetDragDroppingContent()->SetDecoratorVisibility(false);
+		if (Ctx.IsDraggingConnection)
+		{
+			SlateApp.GetDragDroppingContent()->SetDecoratorVisibility(false);
+		}
 		return FNGAEventReply::Handled();
 	}
 
@@ -697,9 +715,51 @@ FNGAEventReply NGAInputProcessor::TryProcessAsEndDragNPanEvent(FSlateApplication
 			else if(!Ctx.GraphPin.IsValid())
 			{
 				CancelDraggingReset(MouseEvent.GetUserIndex());
+
+#if PLATFORM_MAC
+				TSet<FKey> keys;
+				keys.Add(EKeys::LeftMouseButton);
+				FPointerEvent fakeMouseEvent(
+					MouseEvent.GetPointerIndex(),
+					MouseEvent.GetScreenSpacePosition(),
+					MouseEvent.GetLastScreenSpacePosition(),
+					keys,
+					EKeys::LeftMouseButton,
+					0,
+					FModifierKeysState(false, false, false, false, false, false, false, false, false)
+				);
+
+				FWidgetPath WidgetsUnderCursor = SlateApp.LocateWindowUnderMouse(MouseEvent.GetScreenSpacePosition(), SlateApp.GetInteractiveTopLevelWindows());
+				SlateApp.RoutePointerUpEvent(WidgetsUnderCursor, fakeMouseEvent);
+#endif
 			}
 			return FNGAEventReply::BlockSlateInput();
 		}
+	}
+	//drag node and pan.
+	if ((NodeBeingDrag.IsValid() || CommentNodeBeingDrag.IsValid()) && IsPanningButton(MouseEvent.GetEffectingButton()) && Ctx.GraphPanel.IsValid())
+	{
+		//at this moment,left mouse is not pressed in slate's state(see begin drag n pan),add it back,otherwise dragging node has no effect.
+		TSet<FKey> keys;
+		keys.Add(EKeys::LeftMouseButton);
+		FPointerEvent mouseEvent(
+			MouseEvent.GetPointerIndex(),
+			MouseEvent.GetScreenSpacePosition(),
+			MouseEvent.GetLastScreenSpacePosition(),
+			keys,
+			MouseEvent.GetEffectingButton(),
+			0,
+			FModifierKeysState()
+		);
+		const_cast<FPointerEvent&>(MouseEvent) = mouseEvent;
+		SlateApp.SetCursorPos(LastGraphCursorScreenPosClamped);
+		Ctx.GraphPanel->OnMouseButtonUp(Ctx.PanelGeometry, mouseEvent);
+		if (SlateApp.GetPlatformCursor().IsValid())
+		{
+			SlateApp.GetPlatformCursor()->Show(true);
+		}
+
+		return FNGAEventReply::BlockSlateInput(); 
 	}
 	return FNGAEventReply::UnHandled();
 }
@@ -708,7 +768,7 @@ FNGAEventReply NGAInputProcessor::TryProcessAsEndDragNPanEvent(FSlateApplication
 //middle mouse double click select linked node.
 FNGAEventReply NGAInputProcessor::TryProcessAsSelectStreamEvent(FSlateApplication& SlateApp, const FPointerEvent& MouseEvent, const FNGAEventContex& Ctx)
 {
-	if (!GetDefault<UNodeGraphAssistantConfig>()->EanbleSelectStream)
+	if (!GetDefault<UNodeGraphAssistantConfig>()->EnableSelectStream)
 	{
 		return FNGAEventReply::UnHandled();
 	}
@@ -765,7 +825,7 @@ FNGAEventReply NGAInputProcessor::TryProcessAsMultiConnectEvent(FSlateApplicatio
 		return FNGAEventReply::UnHandled();
 	}
 
-	if (Ctx.IsDraggingConnection && Ctx.IsCursorInsidePanel && !MouseEvent.IsAltDown() && !MouseEvent.IsControlDown())
+	if (Ctx.IsDraggingConnection && Ctx.IsCursorInsidePanel && !MouseEvent.IsAltDown())
 	{
 		TSharedPtr<FDragConnection> dragConnection = StaticCastSharedPtr<FDragConnection>(SlateApp.GetDragDroppingContent());
 		//right click multi connect.
@@ -786,8 +846,24 @@ FNGAEventReply NGAInputProcessor::TryProcessAsMultiConnectEvent(FSlateApplicatio
 			if (Ctx.IsClickGesture || (!Ctx.IsClickGesture && MouseEvent.IsShiftDown()))
 			{
 				//decide what to do depend on click on different widget.
-				if (Ctx.GraphPin.IsValid())
+				//[editable text pin]blueprint node pin can have editable text box area,do not multi connect when inside it.
+				if (Ctx.GraphPin.IsValid() && !Ctx.IsInPinEditableBox)
 				{
+					if (!GetDefault<UNodeGraphAssistantConfig>()->EnableLeftClickMultiConnect && !MouseEvent.IsShiftDown())
+					{
+						TArray<UEdGraphPin*> draggingPins;
+						dragConnection->ValidateGraphPinList(draggingPins);
+						for (UEdGraphPin* draggingPin : draggingPins)
+						{
+							if (Ctx.GraphPin->GetPinObj()->GetSchema()->CanCreateConnection(Ctx.GraphPin->GetPinObj(), draggingPin).Response != CONNECT_RESPONSE_DISALLOW)
+							{
+								Ctx.GraphPin->OnDrop(Ctx.PinGeometry, FDragDropEvent(MouseEvent, dragConnection));
+								CancelDraggingReset(MouseEvent.GetUserIndex());
+								return FNGAEventReply::BlockSlateInput();
+							}
+						}
+					}
+
 					Ctx.GraphPin->OnDrop(Ctx.PinGeometry, FDragDropEvent(MouseEvent, dragConnection));
 					return FNGAEventReply::BlockSlateInput();
 				}
@@ -796,6 +872,22 @@ FNGAEventReply NGAInputProcessor::TryProcessAsMultiConnectEvent(FSlateApplicatio
 					TWeakPtr<SGraphPin> lazyConnectiblePin = MyPinFactory->GetLazyConnectiblePin();
 					if (lazyConnectiblePin.IsValid())
 					{
+						if (!GetDefault<UNodeGraphAssistantConfig>()->EnableLeftClickMultiConnect && !MouseEvent.IsShiftDown())
+						{
+							dragConnection->SetHoveredPin(lazyConnectiblePin.Pin()->GetPinObj());
+							TArray<UEdGraphPin*> draggingPins;
+							dragConnection->ValidateGraphPinList(draggingPins);
+							for (UEdGraphPin* draggingPin : draggingPins)
+							{
+								if (lazyConnectiblePin.Pin()->GetPinObj()->GetSchema()->CanCreateConnection(lazyConnectiblePin.Pin()->GetPinObj(), draggingPin).Response != CONNECT_RESPONSE_DISALLOW)
+								{
+									lazyConnectiblePin.Pin()->OnDrop(Ctx.PinGeometry, FDragDropEvent(MouseEvent, dragConnection));
+									CancelDraggingReset(MouseEvent.GetUserIndex());
+									return FNGAEventReply::BlockSlateInput();
+								}
+							}
+						}
+
 						dragConnection->SetHoveredPin(lazyConnectiblePin.Pin()->GetPinObj());
 						lazyConnectiblePin.Pin()->OnDrop(Ctx.PinGeometry, FDragDropEvent(MouseEvent, dragConnection));
 						dragConnection->SetHoveredPin(nullptr);//otherwise will always show pin info.
@@ -820,6 +912,24 @@ FNGAEventReply NGAInputProcessor::TryProcessAsMultiConnectEvent(FSlateApplicatio
 				}
 			}
 			else if (!Ctx.IsClickGesture && !MouseEvent.IsShiftDown())
+			{
+				if (Ctx.GraphPin.IsValid())
+				{
+					return FNGAEventReply::UnHandled();
+				}
+				else if (Ctx.GraphNode.IsValid())
+				{
+					TWeakPtr<SGraphPin> lazyConnectiblePin = MyPinFactory->GetLazyConnectiblePin();
+					if (lazyConnectiblePin.IsValid())
+					{
+						StaticCastSharedPtr<FDragConnection>(SlateApp.GetDragDroppingContent())->SetHoveredPin(lazyConnectiblePin.Pin()->GetPinObj());
+						lazyConnectiblePin.Pin()->OnDrop(Ctx.PinGeometry, FDragDropEvent(MouseEvent, SlateApp.GetDragDroppingContent()));
+						CancelDraggingReset(MouseEvent.GetUserIndex());
+						return FNGAEventReply::BlockSlateInput();
+					}
+				}
+			}
+			else if (!Ctx.IsClickGesture && MouseEvent.IsControlDown())
 			{
 				if (Ctx.GraphPin.IsValid())
 				{
@@ -865,9 +975,15 @@ FNGAEventReply NGAInputProcessor::TryProcessAsClusterHighlightEvent(FSlateApplic
 //todo:use connection factory to set pin highlight.
 FNGAEventReply NGAInputProcessor::TryProcessAsSingleHighlightEvent(FSlateApplication& SlateApp, const FPointerEvent& MouseEvent, const FNGAEventContex& Ctx)
 {
+	if (!Ctx.IsDraggingConnection && Ctx.IsDoubleClickGesture && (Ctx.IsCursorOnPanelEmptySpace || (Ctx.GraphNode.IsValid() && Ctx.GraphNode->GetTypeAsString() == "SGraphNodeKnot")))
+	{
+		Ctx.GraphPanel->MarkedPin.Reset();
+		HighLightedPins.Empty();
+		return FNGAEventReply::UnHandled();
+	}
 	if (Ctx.IsCursorOnPanelEmptySpace && !Ctx.IsDraggingConnection && MouseEvent.GetEffectingButton() == EKeys::LeftMouseButton && !MouseEvent.IsMouseButtonDown(EKeys::RightMouseButton) && !MouseEvent.IsAltDown())
 	{
-		if (Ctx.IsClickGesture && !BlockNextClick)
+		if (Ctx.IsClickGesture && !BlockNextClick && PressedCharKey ==0)
 		{
 			if (Ctx.GraphPanel.IsValid())
 			{
@@ -964,7 +1080,7 @@ FNGAEventReply NGAInputProcessor::TryProcessAsSingleHighlightEvent(FSlateApplica
 
 FNGAEventReply NGAInputProcessor::TryProcessAsBeginCutOffWireEvent(FSlateApplication& SlateApp, const FPointerEvent& MouseEvent, const FNGAEventContex& Ctx)
 {
-	if (!GetDefault<UNodeGraphAssistantConfig>()->EanbleCutoffWire)
+	if (!GetDefault<UNodeGraphAssistantConfig>()->EnableCutoffWire)
 	{
 		return FNGAEventReply::UnHandled();
 	}
@@ -1000,10 +1116,17 @@ FNGAEventReply NGAInputProcessor::TryProcessAsBeginCutOffWireEvent(FSlateApplica
 					GEditor->BeginTransaction(TEXT(""), NSLOCTEXT("NodeGraphAssistant", "CutOffWire", "Cut off wire"), NULL);
 				}
 
-				if (!CutOffCusor.IsValid())
+#if ENGINE_MINOR_VERSION > 22
+				if (SlateApp.GetPlatformCursor().IsValid())
 				{
-					CutOffCusor = MakeShareable(new FHardwareCursor(IPluginManager::Get().FindPlugin(TEXT("NodeGraphAssistant"))->GetBaseDir() / TEXT("Resources") / TEXT("nga_cutoff_cursor"), FVector2D(0, 0)));
+					CusorResource_Scissor = SlateApp.GetPlatformCursor()->CreateCursorFromFile(IPluginManager::Get().FindPlugin(TEXT("NodeGraphAssistant"))->GetBaseDir() / TEXT("Resources") / TEXT("nga_cutoff_cursor"), FVector2D(0, 0));
 				}
+#else
+				if (!CusorResource_Scissor.IsValid())
+				{
+					CusorResource_Scissor = MakeShareable(new FHardwareCursor(IPluginManager::Get().FindPlugin(TEXT("NodeGraphAssistant"))->GetBaseDir() / TEXT("Resources") / TEXT("nga_cutoff_cursor"), FVector2D(0, 0)));
+				}
+#endif
 
 				return FNGAEventReply::BlockSlateInput();  //need to block,otherwise custom cursor icon will flicker if cutoff button is left mouse due to capture.
 			}
@@ -1026,7 +1149,16 @@ FNGAEventReply NGAInputProcessor::TryProcessAsBeingCutOffWireEvent(FSlateApplica
 				MyPinFactory->PayLoadData->CursorDeltaSquared = (MouseEvent.GetScreenSpacePosition() - MouseEvent.GetLastScreenSpacePosition()).SizeSquared();
 				if (MyPinFactory->PayLoadData->OutHoveredInputPins.Num() > 0)
 				{
-					TArray<UEdGraphNode*> notifyNodes;
+					for (int i = 0; i < MyPinFactory->PayLoadData->OutHoveredInputPins.Num(); i++)
+					{
+						if (MyPinFactory->PayLoadData->OutHoveredInputPins[i]->GetOwningNodeUnchecked() && MyPinFactory->PayLoadData->OutHoveredOutputPins[i]->GetOwningNodeUnchecked())
+						{
+							FNodeHelper::BreakSinglePinLink(MyPinFactory->PayLoadData->OutHoveredInputPins[i], MyPinFactory->PayLoadData->OutHoveredOutputPins[i]);
+						}
+					}
+					//these code doesn't trigger "mark material dirty" for material editor
+					//switch to graph schema's interface above,it has nullptr issue as I remembered,keep watching
+					/*TArray<UEdGraphNode*> notifyNodes;
 					while (MyPinFactory->PayLoadData->OutHoveredInputPins.Num() > 0)
 					{
 						MyPinFactory->PayLoadData->OutHoveredInputPins[0]->BreakLinkTo(MyPinFactory->PayLoadData->OutHoveredOutputPins[0]);
@@ -1040,7 +1172,7 @@ FNGAEventReply NGAInputProcessor::TryProcessAsBeingCutOffWireEvent(FSlateApplica
 						}
 						notifyNodes.AddUnique(inputNode);
 						notifyNodes.AddUnique(outputNode);
-						
+
 						MyPinFactory->PayLoadData->OutHoveredInputPins.RemoveAt(0);
 						MyPinFactory->PayLoadData->OutHoveredOutputPins.RemoveAt(0);
 					}
@@ -1050,7 +1182,7 @@ FNGAEventReply NGAInputProcessor::TryProcessAsBeingCutOffWireEvent(FSlateApplica
 						{
 							notifyNode->NodeConnectionListChanged();
 						}
-					}
+					}*/
 					return FNGAEventReply::Handled();
 				}
 
@@ -1066,7 +1198,14 @@ FNGAEventReply NGAInputProcessor::TryProcessAsBeingCutOffWireEvent(FSlateApplica
 
 				if (SlateApp.GetPlatformCursor().IsValid())
 				{
-					SlateApp.GetPlatformCursor()->SetTypeShape(EMouseCursor::Custom, CutOffCusor->GetHandle());
+#if ENGINE_MINOR_VERSION > 22
+					if (CusorResource_Scissor)
+					{
+						SlateApp.GetPlatformCursor()->SetTypeShape(EMouseCursor::Custom, CusorResource_Scissor);
+					}
+#else
+					SlateApp.GetPlatformCursor()->SetTypeShape(EMouseCursor::Custom, CusorResource_Scissor->GetHandle());
+#endif
 					SlateApp.GetPlatformCursor()->SetType(EMouseCursor::Custom);
 				}
 			}
@@ -1155,7 +1294,32 @@ void NGAInputProcessor::BypassSelectedNodes(bool ForceKeepNode)
 
 	FScopedTransaction Transaction(NSLOCTEXT("NodeGraphAssistant", "BypassNodes", "Bypass node"));
 
-	if (!FNodeHelper::BypassNodes(graphPanel->GetGraphObj(), selectedNodes, GetDefault<UNodeGraphAssistantConfig>()->BypassNodeAnyway, ForceKeepNode))
+	if (!ForceKeepNode && GetDefault<UNodeGraphAssistantConfig>()->BypassAndCopyNodes)
+	{
+		FSlateApplication& slateApp = FSlateApplication::Get();
+		FWidgetPath widgetsUnderCursor = slateApp.LocateWindowUnderMouse(slateApp.GetCursorPos(), slateApp.GetInteractiveTopLevelWindows());
+		FScopedSwitchWorldHack SwitchWorld(widgetsUnderCursor);
+		for (int i = widgetsUnderCursor.Widgets.Num() - 1; i >= 0; i--)
+		{
+			FString widgetName = widgetsUnderCursor.Widgets[i].Widget->GetTypeAsString();
+			if (widgetName == "SGraphEditorImpl")
+			{
+				TSharedRef<SGraphEditorImpl> PanelImpl = StaticCastSharedRef<SGraphEditorImpl>(widgetsUnderCursor.Widgets[i].Widget);
+				PanelImpl->OnKeyDown(
+					FGeometry(),
+#if PLATFORM_MAC
+					FKeyEvent(EKeys::C, FModifierKeysState(false, false, false, false, false, false, true, false, false), 0, false, 0, 0)
+#else
+					FKeyEvent(EKeys::C, FModifierKeysState(false, false, true, false, false, false, false, false, false), 0, false, 0, 0)
+#endif
+				);
+				break;
+			}
+		}
+	}
+
+	bool BypassSuccess = FNodeHelper::BypassNodes(graphPanel->GetGraphObj(), selectedNodes, GetDefault<UNodeGraphAssistantConfig>()->BypassNodeAnyway, ForceKeepNode);
+	if (!BypassSuccess)
 	{
 		FNotificationInfo Info(NSLOCTEXT("NodeGraphAssistant","BypassNodes", "Can not fully bypass node"));
 		Info.ExpireDuration = 3.0f;
@@ -1273,7 +1437,7 @@ FNGAEventReply NGAInputProcessor::TryProcessAsCreateNodeOnWireEvent(FSlateApplic
 
 			//begin transaction here,before create new node may happen next.
 			//need transaction for break single pin link.
-			int32 tranIndex;
+			int32 tranIndex = INDEX_NONE;
 			if (GEditor && GEditor->Trans && !GEditor->bIsSimulatingInEditor)
 			{
 				tranIndex = GEditor->BeginTransaction(TEXT(""), NSLOCTEXT("NodeGraphAssistant", "InsertNode", "Insert node"), NULL);
@@ -1290,9 +1454,9 @@ FNGAEventReply NGAInputProcessor::TryProcessAsCreateNodeOnWireEvent(FSlateApplic
 					//maybe node not created,cancel
 					if (GEditor && GEditor->Trans && !GEditor->bIsSimulatingInEditor)
 					{
-						if (GEditor->IsTransactionActive())
+						if (GEditor->IsTransactionActive() && tranIndex)
 						{
-							GEditor->CancelTransaction(tranIndex);
+							GEditor->CancelTransaction(tranIndex);//tranIndex equal INDEX_NONE will cause assertion in vs 
 						}
 					}
 					BlockNextClick = false;
@@ -1359,7 +1523,6 @@ FNGAEventReply NGAInputProcessor::TryProcessAsCreateNodeOnWireEvent(FSlateApplic
 
 
 //rearrange selected nodes into grid based structure.
-//see documentation.
 void NGAInputProcessor::RearrangeNodes()
 {
 	TSharedPtr<SGraphPanel> graphPanel = GetCurrentGraphPanel();
@@ -1436,7 +1599,6 @@ FNGAEventReply NGAInputProcessor::TryProcessAsEndCreateNodeOnWireEvent(FSlateApp
 	return FNGAEventReply::UnHandled();		
 }
 
-
 //todo:no undo if no wire connected.
 FNGAEventReply NGAInputProcessor::TryProcessAsBeginLazyConnectEvent(FSlateApplication& SlateApp, const FPointerEvent& MouseEvent, const FNGAEventContex& Ctx)
 {
@@ -1468,7 +1630,6 @@ FNGAEventReply NGAInputProcessor::TryProcessAsBeginLazyConnectEvent(FSlateApplic
 
 	return FNGAEventReply::UnHandled();
 }
-
 
 //when cursor is above a node while dragging,auto snap connection wire to closest connectible pin of the node.
 //will make actual connection if any connect gesture was committed.
@@ -1570,7 +1731,6 @@ FNGAEventReply NGAInputProcessor::TryProcessAsLazyConnectMouseMoveEvent(FSlateAp
 	return FNGAEventReply::UnHandled();
 }
 
-
 FNGAEventReply NGAInputProcessor::TryProcessAsEndLazyConnectEvent(FSlateApplication& SlateApp, const FPointerEvent& MouseEvent, FNGAEventContex Ctx)
 {
 	if (HasBegunLazyConnect)
@@ -1590,7 +1750,6 @@ FNGAEventReply NGAInputProcessor::TryProcessAsEndLazyConnectEvent(FSlateApplicat
 	}
 	return FNGAEventReply::UnHandled();
 }
-
 
 //when dragging a node,auto detect surrounding pins it can linked to.
 //will make connection when release drag.
@@ -1645,114 +1804,10 @@ FNGAEventReply NGAInputProcessor::TryProcessAsAutoConnectMouseMoveEvent(FSlateAp
 							targetNodes.AddUnique(visibleNode);
 						}
 					}
-
-					//cull distant node
-					TArray<TSharedRef<SGraphNode>> connectableTargetNodes;
-					for (auto sourceNode : sourceNodes)
-					{
-						for (auto targetNode : targetNodes)
-						{
-							if (!connectableTargetNodes.Contains(targetNode))
-							{
-								if (FBox2D(sourceNode->GetPosition() - FVector2D(autoConnectRadius, autoConnectRadius), sourceNode->GetPosition() + sourceNode->GetDesiredSize() + FVector2D(autoConnectRadius, autoConnectRadius)).Intersect(FBox2D(targetNode->GetPosition(), targetNode->GetPosition() + targetNode->GetDesiredSize())))
-								{
-									connectableTargetNodes.Add(targetNode);
-								}
-							}
-						}
-					}
-					targetNodes = connectableTargetNodes;
-
-					//try to connect pin from top to bottom
-					sourceNodes.Sort([](TSharedRef<SGraphNode> A, TSharedRef<SGraphNode> B) {return A->GetPosition().Y < B->GetPosition().Y; });
-					targetNodes.Sort([](TSharedRef<SGraphNode> A, TSharedRef<SGraphNode> B) {return A->GetPosition().Y < B->GetPosition().Y; });
-
 					TArray<TWeakPtr<SGraphPin>> startGraphPins;
 					TArray<TWeakPtr<SGraphPin>> endGraphPins;
-					TArray<float> startEndPinDist;
 
-					for (auto sourceNode : sourceNodes)
-					{
-						for (auto sourceNodePin : FNodeHelper::GetPins(sourceNode))
-						{
-							float closestDistTotargetPin = autoConnectRadius;
-							TSharedRef<SGraphPin> closestTargetPin = sourceNodePin;
-							for (auto targetNode : targetNodes)
-							{
-								bool isConnected = false;
-								for (auto pinIsConnected : FNodeHelper::GetPins(sourceNode))
-								{
-									for (auto linkToIsConnected : pinIsConnected->GetPinObj()->LinkedTo)
-									{
-										if (linkToIsConnected->GetOwningNode() == targetNode->GetNodeObj())
-										{
-											isConnected = true;
-											break;
-										}
-									}
-								}
-								if (isConnected)
-								{
-									continue;
-								}
-
-								for (auto targetNodePin : FNodeHelper::GetPins(targetNode))
-								{
-									if (sourceNodePin->GetDirection() != targetNodePin->GetDirection())
-									{
-										FVector2D sourceNodePinPos = sourceNodePin->GetNodeOffset() + sourceNode->GetPosition();
-										sourceNodePinPos = sourceNodePinPos + FVector2D(sourceNodePin->GetDirection() == EEdGraphPinDirection::EGPD_Output ? sourceNodePin->GetDesiredSize().X : 0, sourceNodePin->GetDesiredSize().Y / 2);
-										FVector2D targetNodePinPos = targetNodePin->GetNodeOffset() + targetNode->GetPosition();
-										targetNodePinPos = targetNodePinPos + FVector2D(targetNodePin->GetDirection() == EEdGraphPinDirection::EGPD_Output ? targetNodePin->GetDesiredSize().X : 0, targetNodePin->GetDesiredSize().Y / 2);
-
-										if (sourceNodePin->GetDirection() == EEdGraphPinDirection::EGPD_Input && targetNodePinPos.X > sourceNodePinPos.X)
-										{
-											continue;
-										}
-										if (sourceNodePin->GetDirection() == EEdGraphPinDirection::EGPD_Output && targetNodePinPos.X < sourceNodePinPos.X)
-										{
-											continue;
-										}
-
-										float pinDist = FVector2D::Distance(sourceNodePinPos, targetNodePinPos);
-										if (pinDist < closestDistTotargetPin)
-										{
-											//seems CanCreateConnection slow down performance,so make it last.
-											if (Ctx.GraphPanel->GetGraphObj()->GetSchema()->CanCreateConnection(sourceNodePin->GetPinObj(), targetNodePin->GetPinObj()).Response == ECanCreateConnectionResponse::CONNECT_RESPONSE_MAKE)
-											{
-												closestDistTotargetPin = pinDist;
-												closestTargetPin = targetNodePin;
-											}
-										}
-									}
-								}
-							}
-							if (closestDistTotargetPin < autoConnectRadius)
-							{
-								//if target pin was already matched with other source pin,replace it if it's closer.
-								if (endGraphPins.Contains(closestTargetPin))
-								{
-									int index = endGraphPins.Find(closestTargetPin);
-									if (closestDistTotargetPin < startEndPinDist[index])
-									{
-										startGraphPins.RemoveAt(index);
-										endGraphPins.RemoveAt(index);
-										startEndPinDist.RemoveAt(index);
-
-										startGraphPins.Add(TWeakPtr<SGraphPin>(sourceNodePin));
-										endGraphPins.Add(TWeakPtr<SGraphPin>(closestTargetPin));
-										startEndPinDist.Add(closestDistTotargetPin);
-									}
-								}
-								else
-								{
-									startGraphPins.Add(TWeakPtr<SGraphPin>(sourceNodePin));
-									endGraphPins.Add(TWeakPtr<SGraphPin>(closestTargetPin));
-									startEndPinDist.Add(closestDistTotargetPin);
-								}
-							}
-						}
-					}
+					FNodeHelper::GetAutoConnectablePins(Ctx.GraphPanel->GetGraphObj()->GetSchema(), autoConnectRadius, sourceNodes, targetNodes, startGraphPins, endGraphPins);
 
 					if (startGraphPins.Num() > 0)
 					{
@@ -1767,7 +1822,6 @@ FNGAEventReply NGAInputProcessor::TryProcessAsAutoConnectMouseMoveEvent(FSlateAp
 
 	return FNGAEventReply::UnHandled();
 }
-
 
 FNGAEventReply NGAInputProcessor::TryProcessAsAutoConnectMouseUpEvent(FSlateApplication& SlateApp, const FPointerEvent& MouseEvent, const FNGAEventContex& Ctx)
 {
@@ -1792,6 +1846,7 @@ FNGAEventReply NGAInputProcessor::TryProcessAsAutoConnectMouseUpEvent(FSlateAppl
 	{
 		if (NodeBeingDrag.IsValid() && Ctx.GraphPanel.IsValid())
 		{
+			TSet<UEdGraphNode*> NodeList;
 			for (int i = 0; i < MyPinFactory->PayLoadData->AutoConnectStartPins.Num(); i++)
 			{
 				if (MyPinFactory->PayLoadData->AutoConnectStartPins[i].IsValid() && MyPinFactory->PayLoadData->AutoConnectEndPins[i].IsValid())
@@ -1800,6 +1855,23 @@ FNGAEventReply NGAInputProcessor::TryProcessAsAutoConnectMouseUpEvent(FSlateAppl
 					TSharedRef<SGraphPin> endPin = MyPinFactory->PayLoadData->AutoConnectEndPins[i].Pin().ToSharedRef();
 
 					Ctx.GraphPanel->GetGraphObj()->GetSchema()->TryCreateConnection(startPin->GetPinObj(), endPin->GetPinObj());
+					if (startPin->GetPinObj()->GetOwningNodeUnchecked())
+					{
+						NodeList.Add(startPin->GetPinObj()->GetOwningNodeUnchecked());
+						
+					}
+					if (endPin->GetPinObj()->GetOwningNodeUnchecked())
+					{
+						NodeList.Add(endPin->GetPinObj()->GetOwningNodeUnchecked());
+					}
+				}
+			}
+			for (auto It = NodeList.CreateConstIterator(); It; ++It)
+			{
+				UEdGraphNode* Node = (*It);
+				if (Node)
+				{
+					Node->NodeConnectionListChanged();
 				}
 			}
 			MyPinFactory->ResetAutoConnectPayloadData();
@@ -1809,7 +1881,6 @@ FNGAEventReply NGAInputProcessor::TryProcessAsAutoConnectMouseUpEvent(FSlateAppl
 
 	return FNGAEventReply::UnHandled();
 }
-
 
 FNGAEventReply NGAInputProcessor::TryProcessAsShakeNodeOffWireEvent(FSlateApplication& SlateApp, const FPointerEvent& MouseEvent, FNGAEventContex Ctx)
 {
@@ -1822,7 +1893,7 @@ FNGAEventReply NGAInputProcessor::TryProcessAsShakeNodeOffWireEvent(FSlateApplic
 		return FNGAEventReply::UnHandled();
 	}
 
-	if (Ctx.IsCursorInsidePanel)
+	if (Ctx.IsCursorInsidePanel && !IsPanningButtonDown(MouseEvent))//if drag pan node,
 	{
 		if (!NodeBeingDrag.IsValid())
 		{
@@ -1851,6 +1922,9 @@ FNGAEventReply NGAInputProcessor::TryProcessAsShakeNodeOffWireEvent(FSlateApplic
 				{
 					if (FVector2D::DotProduct(newTrackingInfo.MouseMoveDirection, ShakeOffNodeTracker.Last().MouseMoveDirection) < -0.9)
 					{
+						/*UE_LOG(LogTemp, Warning, TEXT("--------Shake node--------"));
+						UE_LOG(LogTemp, Warning, TEXT("%f,%f"), MouseEvent.GetScreenSpacePosition().X, MouseEvent.GetScreenSpacePosition().Y);
+						UE_LOG(LogTemp, Warning, TEXT("%f,%f"), MouseEvent.GetLastScreenSpacePosition().X, MouseEvent.GetLastScreenSpacePosition().Y)*/
 						ShakeOffNodeTracker.Add(newTrackingInfo);
 						if (ShakeOffNodeTracker.Num() == 3)
 						{
@@ -1872,7 +1946,6 @@ FNGAEventReply NGAInputProcessor::TryProcessAsShakeNodeOffWireEvent(FSlateApplic
 	}
 	return FNGAEventReply::UnHandled();
 }
-
 
 FNGAEventReply NGAInputProcessor::TryProcessAsInsertNodeMouseMoveEvent(FSlateApplication& SlateApp, const FPointerEvent& MouseEvent, const FNGAEventContex& Ctx)
 {
@@ -1941,7 +2014,6 @@ FNGAEventReply NGAInputProcessor::TryProcessAsInsertNodeMouseMoveEvent(FSlateApp
 	return FNGAEventReply::UnHandled();
 }
 
-
 FNGAEventReply NGAInputProcessor::TryProcessAsEndInsertNodeEvent(FSlateApplication& SlateApp, const FPointerEvent& MouseEvent, const FNGAEventContex& Ctx)
 {
 	if (!GetDefault<UNodeGraphAssistantConfig>()->EnableInsertNodeOnWire)
@@ -1974,6 +2046,192 @@ FNGAEventReply NGAInputProcessor::TryProcessAsEndInsertNodeEvent(FSlateApplicati
 			}
 		}
 	}
+	return FNGAEventReply::UnHandled();
+}
+
+FNGAEventReply NGAInputProcessor::TryProcessAsCreateNodeOnWireWithHotkeyEvent(FSlateApplication& SlateApp, const FPointerEvent& MouseEvent, const FNGAEventContex& Ctx)
+{
+	if (!GetDefault<UNodeGraphAssistantConfig>()->EnableCreateNodeOnWire)
+	{
+		return FNGAEventReply::UnHandled();
+	}
+	if (Ctx.GraphType == EGT_AnimStateMachine)
+	{
+		return FNGAEventReply::UnHandled();
+	}
+	if (Ctx.GraphType == EGT_ReferenceViewer)
+	{
+		return FNGAEventReply::UnHandled();
+	}
+
+	if (MouseEvent.GetEffectingButton() == EKeys::LeftMouseButton && !MouseEvent.IsMouseButtonDown(EKeys::RightMouseButton))
+	{
+		if (!Ctx.IsDraggingConnection && Ctx.IsCursorOnPanelEmptySpace && Ctx.IsClickGesture && PressedCharKey)
+		{
+			TSharedPtr<SGraphPanel> graphPanel = Ctx.GraphPanel;
+
+			TWeakPtr<SGraphPin> tempPin = graphPanel->MarkedPin;
+			graphPanel->MarkedPin.Reset();
+
+			TSet<FKey> keys;
+			keys.Add(EKeys::LeftMouseButton);
+			FPointerEvent fakeMouseEvent(
+				MouseEvent.GetPointerIndex(),
+				MouseEvent.GetScreenSpacePosition(),
+				MouseEvent.GetLastScreenSpacePosition(),
+				keys,
+				EKeys::LeftMouseButton,
+				0,
+				FModifierKeysState(true, false, false, false, false, false, false, false, false)
+			);
+
+			FReply reply = graphPanel->OnMouseButtonUp(Ctx.PanelGeometry, fakeMouseEvent);
+			if (!reply.IsEventHandled() || !graphPanel->MarkedPin.IsValid())
+			{
+				graphPanel->MarkedPin = tempPin;
+				return FNGAEventReply::UnHandled();
+			}
+
+			if (GetDefault<UNodeGraphAssistantConfig>()->CreateNodeOnlyOnSelectedWire && HighLightedPins.Array().Find(graphPanel->MarkedPin) == INDEX_NONE)
+			{
+				graphPanel->MarkedPin = tempPin;
+				return FNGAEventReply::UnHandled();
+			}
+
+			if (graphPanel->MarkedPin.Pin().Get()->GetPinObj()->LinkedTo.Num() == 0)
+			{
+				return FNGAEventReply::UnHandled();
+			}
+
+			SGraphPin* markedPinA = graphPanel->MarkedPin.Pin().Get();
+			SGraphPin* markedPinB = graphPanel->GetNodeWidgetFromGuid(markedPinA->GetPinObj()->LinkedTo[0]->GetOwningNode()->NodeGuid)->FindWidgetForPin(markedPinA->GetPinObj()->LinkedTo[0]).Get();
+			graphPanel->MarkedPin = tempPin;
+
+			if (markedPinA->GetPinObj()->LinkedTo.Num() > 1)
+			{
+				for (auto linkedPin : markedPinA->GetPinObj()->LinkedTo)
+				{
+					markedPinB = graphPanel->GetNodeWidgetFromGuid(linkedPin->GetOwningNode()->NodeGuid)->FindWidgetForPin(linkedPin).Get();
+					//should be good enough.
+					if (FNodeHelper::GetWirePointHitResult(FArrangedWidget(graphPanel.ToSharedRef(), Ctx.PanelGeometry), markedPinA, markedPinB, MouseEvent.GetScreenSpacePosition(), 7, GetDefault<UGraphEditorSettings>()))
+					{
+						break;
+					}
+				}
+			}
+
+			UEdGraphPin* pinA;
+			UEdGraphPin* pinB;
+			if (markedPinA->GetDirection() == EGPD_Output && markedPinB->GetDirection() == EGPD_Input)
+			{
+				pinA = markedPinA->GetPinObj();
+				pinB = markedPinB->GetPinObj();
+			}
+			else if (markedPinA->GetDirection() == EGPD_Input && markedPinB->GetDirection() == EGPD_Output)
+			{
+				pinA = markedPinB->GetPinObj();
+				pinB = markedPinA->GetPinObj();
+			}
+			else { return FNGAEventReply::UnHandled(); }
+
+			UEdGraphNode* selectedNode = nullptr;
+			if (graphPanel->SelectionManager.SelectedNodes.Num() > 0)
+			{
+				UEdGraphNode* graphNode = Cast<UEdGraphNode>(graphPanel->SelectionManager.SelectedNodes.Array()[0]);
+				if (graphNode)
+				{
+					selectedNode = graphNode;
+				}
+			}
+
+			//begin transaction here,before create new node may happen next.
+			//need transaction for break single pin link.
+			int32 tranIndex = INDEX_NONE;
+			if (GEditor && GEditor->Trans && !GEditor->bIsSimulatingInEditor)
+			{
+				tranIndex = GEditor->BeginTransaction(TEXT(""), NSLOCTEXT("NodeGraphAssistant", "CreateNode", "Create node"), NULL);
+			}
+
+			int* tryTimes = new int(2);
+			NGADeferredEventDele deferredDele;
+			deferredDele.BindLambda([selectedNode, graphPanel, pinA, pinB, tranIndex, this](int* tryTimes)
+			{
+				//only exit
+				if (*tryTimes == 0)
+				{
+					if (GEditor && GEditor->Trans && !GEditor->bIsSimulatingInEditor)
+					{
+						if (GEditor->IsTransactionActive() && tranIndex)
+						{
+							GEditor->CancelTransaction(tranIndex);//tranIndex equal INDEX_NONE will cause assertion in vs 
+						}
+					}
+					return false;
+				}
+				if (!FSlateApplication::Get().AnyMenusVisible())
+				{
+					if (graphPanel.IsValid() && graphPanel->SelectionManager.SelectedNodes.Num() > 0)  //>0, possible auto conversion node.
+					{
+						//selection set might still be the old one(blueprint graph),so don't do it right away.
+						if (*tryTimes > 1)
+						{
+							(*tryTimes)--;
+							return false;
+						}
+						UEdGraphNode* newSelectedNode = Cast<UEdGraphNode>(graphPanel->SelectionManager.SelectedNodes.Array()[0]);
+						if (newSelectedNode && newSelectedNode != selectedNode)
+						{
+							bool insertSuccess = true;
+							for (auto newNodePin : newSelectedNode->Pins)
+							{
+								if (newNodePin->Direction == EGPD_Output)
+								{
+									if (newSelectedNode->GetSchema()->CanCreateConnection(newNodePin, pinB).Response != CONNECT_RESPONSE_DISALLOW)
+									{
+										insertSuccess &= newSelectedNode->GetSchema()->TryCreateConnection(newNodePin, pinB);
+										break;
+									}
+								}
+							}
+							for (auto newNodePin : newSelectedNode->Pins)
+							{
+								if (newNodePin->Direction == EGPD_Input)
+								{
+									if (newSelectedNode->GetSchema()->CanCreateConnection(newNodePin, pinA).Response != CONNECT_RESPONSE_DISALLOW)
+									{
+										insertSuccess &= newSelectedNode->GetSchema()->TryCreateConnection(newNodePin, pinA);
+										break;
+									}
+								}
+							}
+							if (insertSuccess)
+							{
+								FNodeHelper::BreakSinglePinLink(pinA, pinB);
+							}
+							else
+							{
+								FNotificationInfo Info(NSLOCTEXT("NodeGraphAssistant", "InsertNode", "Can not insert this node"));
+								Info.ExpireDuration = 3.0f;
+								FSlateNotificationManager::Get().AddNotification(Info);
+							}
+							//new node must be created now,end.
+							if (GEditor && GEditor->Trans && !GEditor->bIsSimulatingInEditor)
+							{
+								if (GEditor->IsTransactionActive())
+								{
+									GEditor->EndTransaction();
+								}
+							}
+						}
+					}
+					(*tryTimes)--;
+				}
+				return false;
+			}, tryTimes);
+			TickEventListener.Add(deferredDele);
+		}
+	}
+
 	return FNGAEventReply::UnHandled();
 }
 
@@ -2250,7 +2508,11 @@ void NGAInputProcessor::DupliNodeWithWire()
 	{
 		FSlateApplication& SlateApp = FSlateApplication::Get();
 		auto keyEvent = FKeyEvent(EKeys::W,
+#if PLATFORM_MAC
+			FModifierKeysState(false, false, false, false, false, false, true, false, false),
+#else
 			FModifierKeysState(false, false, true, false, false, false, false, false, false),
+#endif
 			0,
 			false,
 			0,
@@ -2375,6 +2637,57 @@ void NGAInputProcessor::CycleWireDrawStyle()
 	}
 }
 
+void NGAInputProcessor::ConnectNodes()
+{
+	TSharedPtr<SGraphPanel> graphPanel = GetCurrentGraphPanel();
+	if (!graphPanel.IsValid())
+	{
+		return;
+	}
+	if (graphPanel->GetGraphObj()->GetClass()->GetFName() == "AnimationStateMachineGraph")
+	{
+		return;
+	}
+	if (graphPanel->GetGraphObj()->GetClass()->GetFName() == "EdGraph_ReferenceViewer")
+	{
+		return;
+	}
+	if (graphPanel->GetGraphObj()->GetClass()->GetFName() == "PhysicsAssetGraph")
+	{
+		return;
+	}
+
+	TArray<TSharedRef<SGraphNode>> targetNodes;
+	FChildren* allNodes = graphPanel->GetChildren();
+	for (int i = 0; i < allNodes->Num(); i++)
+	{
+		auto node = StaticCastSharedRef<SGraphNode>(allNodes->GetChildAt(i));
+		if (graphPanel->SelectionManager.SelectedNodes.Contains(node->GetNodeObj()))
+		{
+			targetNodes.AddUnique(node);
+		}
+	}
+
+	const FScopedTransaction Transaction(NSLOCTEXT("NodeGraphAssistant", "ConnectNodes", "Connect Nodes"));
+	for (TSharedRef<SGraphNode> targetNode : targetNodes)
+	{
+		TArray<TSharedRef<SGraphNode>> sourceNodes;
+		sourceNodes.Add(targetNode);
+		TArray<TWeakPtr<SGraphPin>> startGraphPins;
+		TArray<TWeakPtr<SGraphPin>> endGraphPins;
+		FNodeHelper::GetAutoConnectablePins(graphPanel->GetGraphObj()->GetSchema(), -1, sourceNodes, targetNodes, startGraphPins, endGraphPins);
+
+		for (int i = 0; i < startGraphPins.Num(); i++)
+		{
+			if (startGraphPins[i].IsValid() && endGraphPins[i].IsValid())
+			{
+				TSharedRef<SGraphPin> startPin = startGraphPins[i].Pin().ToSharedRef();
+				TSharedRef<SGraphPin> endPin = endGraphPins[i].Pin().ToSharedRef();
+				graphPanel->GetGraphObj()->GetSchema()->TryCreateConnection(startPin->GetPinObj(), endPin->GetPinObj());
+			}
+		}
+	}
+}
 
 void NGAInputProcessor::Tick(const float DeltaTime, FSlateApplication& SlateApp, TSharedRef<ICursor> Cursor)
 {
@@ -2403,7 +2716,7 @@ bool NGAInputProcessor::HandleMouseButtonDownEvent(FSlateApplication& SlateApp, 
 		{
 			if (!SlateApp.HasAnyMouseCaptor())
 			{
-				if (ctx.GraphNode.IsValid())
+				if (ctx.GraphNode.IsValid() || ctx.CommentNode.IsValid())
 				{
 					if (SlateApp.GetPlatformCursor().IsValid())
 					{
@@ -2412,9 +2725,13 @@ bool NGAInputProcessor::HandleMouseButtonDownEvent(FSlateApplication& SlateApp, 
 						if (cursorIcon == EMouseCursor::CardinalCross || cursorIcon == EMouseCursor::Default)
 						{
 							NodeBeingDrag = ctx.GraphNode;
+							CommentNodeBeingDrag = ctx.CommentNode;
 							if (GetDefault<UNodeGraphAssistantConfig>()->HideToolTipWhenDraggingNode)
 							{
+								//todo,use cvar
+#if ENGINE_MINOR_VERSION > 16
 								SlateApp.SetAllowTooltips(false);
+#endif
 							}				
 						}
 					}
@@ -2497,10 +2814,13 @@ bool NGAInputProcessor::HandleMouseButtonUpEvent(FSlateApplication& SlateApp, co
 
 	reply.Append(TryProcessAsEndInsertNodeEvent(SlateApp, MouseEvent, ctx));
 
+	reply.Append(TryProcessAsCreateNodeOnWireWithHotkeyEvent(SlateApp, MouseEvent, ctx));
+
 	
-	if (MouseEvent.GetEffectingButton() == EKeys::LeftMouseButton && NodeBeingDrag.IsValid())
+	if (MouseEvent.GetEffectingButton() == EKeys::LeftMouseButton && (NodeBeingDrag.IsValid() || CommentNodeBeingDrag.IsValid()))
 	{
 		NodeBeingDrag.Reset();
+		CommentNodeBeingDrag.Reset();
 		if (GetDefault<UNodeGraphAssistantConfig>()->HideToolTipWhenDraggingNode)
 		{
 			RefreshToolTipWhenMouseMove = true;
@@ -2520,9 +2840,11 @@ bool NGAInputProcessor::HandleMouseMoveEvent(FSlateApplication& SlateApp, const 
 {
 	FNGAEventContex ctx = InitEventContex(SlateApp, MouseEvent);
 
-	if (!MouseEvent.IsMouseButtonDown(EKeys::LeftMouseButton) && NodeBeingDrag.IsValid())
+	//comment
+	if (!MouseEvent.IsMouseButtonDown(EKeys::LeftMouseButton) && !MouseEvent.IsMouseButtonDown(EKeys::RightMouseButton) &&(NodeBeingDrag.IsValid() || CommentNodeBeingDrag.IsValid()))
 	{
 		NodeBeingDrag.Reset();
+		CommentNodeBeingDrag.Reset();
 		if (GetDefault<UNodeGraphAssistantConfig>()->HideToolTipWhenDraggingNode)
 		{
 			RefreshToolTipWhenMouseMove = true;
@@ -2532,7 +2854,9 @@ bool NGAInputProcessor::HandleMouseMoveEvent(FSlateApplication& SlateApp, const 
 	{
 		RefreshToolTipWhenMouseMove = false;
 		SlateApp.SpawnToolTip(SlateApp.MakeToolTip(FText::FromString(" ")), FVector2D(0, 0)); //force refresh,otherwise tooltip wont show up until hover widget change.
+#if ENGINE_MINOR_VERSION > 16
 		SlateApp.SetAllowTooltips(true);
+#endif
 	}
 
 	//send highlighted pins that we keep track of to slate,so slate can draw them.
@@ -2624,8 +2948,26 @@ bool NGAInputProcessor::HandleMouseMoveEvent(FSlateApplication& SlateApp, const 
 }
 
 
+#if ENGINE_MINOR_VERSION >= 21
+bool NGAInputProcessor::HandleMouseButtonDoubleClickEvent(FSlateApplication& SlateApp, const FPointerEvent& MouseEvent)
+{
+	FNGAEventContex ctx = InitEventContex(SlateApp, MouseEvent);
+	ctx.IsDoubleClickGesture = true;
+
+	TryProcessAsSingleHighlightEvent(SlateApp, MouseEvent, ctx);
+
+	return false;
+}
+#endif
+
+
 bool NGAInputProcessor::HandleKeyDownEvent(FSlateApplication& SlateApp, const FKeyEvent& InKeyEvent)
 {
+	if (InKeyEvent.GetCharacter() > 0)
+	{
+		PressedCharKey = InKeyEvent.GetCharacter();
+	}
+
 	if (UICommandList->ProcessCommandBindings(InKeyEvent.GetKey(), FSlateApplication::Get().GetModifierKeys(), InKeyEvent.IsRepeat()))
 	{
 		return true;
@@ -2646,6 +2988,8 @@ bool NGAInputProcessor::HandleKeyDownEvent(FSlateApplication& SlateApp, const FK
 
 bool NGAInputProcessor::HandleKeyUpEvent(FSlateApplication& SlateApp, const FKeyEvent& InKeyEvent)
 {
+	PressedCharKey = 0;
+
 	//shift cancel multi-drop
 	if ((InKeyEvent.GetKey() == EKeys::LeftShift || InKeyEvent.GetKey() == EKeys::RightShift) && InKeyEvent.GetUserIndex() >= 0)
 	{
@@ -2658,4 +3002,4 @@ bool NGAInputProcessor::HandleKeyUpEvent(FSlateApplication& SlateApp, const FKey
 
 	return false;
 }
-//#pragma optimize("", on)
+#pragma optimize("", on)

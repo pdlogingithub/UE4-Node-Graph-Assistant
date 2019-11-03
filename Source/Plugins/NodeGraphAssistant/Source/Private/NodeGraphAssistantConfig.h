@@ -1,4 +1,4 @@
-// Copyright 2018 yangxiangyun
+// Copyright 2019 yangxiangyun
 // All Rights Reserved
 
  
@@ -28,17 +28,26 @@ class UNodeGraphAssistantConfig : public UObject
 	GENERATED_BODY()
  
 public:
+	UNodeGraphAssistantConfig()
+	{
+		InsertNodeShowDeletedWireAsRed = false;
+	}
+
+	/** Keep connection wire alive after making pin connection.*/
+	UPROPERTY(EditAnywhere, config, Category = Features)
+	bool EnableLeftClickMultiConnect = true;
+
 	/** When dragging a wire over a node,wire automatically align to closest connectible pin*/
 	UPROPERTY(EditAnywhere, config, Category = Features)
 	bool EnableLazyConnect = true;
 
 	/** Drag mouse to cut off wire along its way. */
 	UPROPERTY(EditAnywhere, config, Category = Features)
-	bool EanbleCutoffWire = true;
+	bool EnableCutoffWire = true;
 
 	/** Select nodes that are connected to middle mouse double clicked node.*/
 	UPROPERTY(EditAnywhere, config, Category = Features)
-	bool EanbleSelectStream = true;
+	bool EnableSelectStream = true;
 
 	/** Right click on wire to insert new node*/
 	UPROPERTY(EditAnywhere, config, Category = Features)
@@ -94,6 +103,10 @@ public:
 	/** when dragging a node and this button down will enable auto connect */
 	UPROPERTY(config, EditAnywhere, Category = Settings)
 	EAutoConnectModifier AutoConnectModifier = EAutoConnectModifier::None;
+
+	/** copy nodes to clipboard after successful bypass. */
+	UPROPERTY(EditAnywhere, config, Category = Settings)
+	bool BypassAndCopyNodes = false;
 
 	/** show button in toolbar,need to restart editor */
 	UPROPERTY(config, EditAnywhere, Category = Settings)

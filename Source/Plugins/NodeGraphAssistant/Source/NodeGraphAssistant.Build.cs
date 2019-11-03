@@ -1,7 +1,10 @@
-// Copyright 2018 yangxiangyun
+// Copyright 2019 yangxiangyun
 // All Rights Reserved
 
 using System.IO;
+#if UE_4_17_OR_LATER
+using Tools.DotNETCommon;
+#endif
 
 namespace UnrealBuildTool.Rules
 {
@@ -57,21 +60,29 @@ namespace UnrealBuildTool.Rules
                 {
                     "Core","CoreUObject","Slate","SlateCore","UnrealEd","GraphEditor",
                     "InputCore","EditorStyle","Engine","AnimGraph","Projects",
-                    "MaterialEditor","BlueprintGraph","AnimationBlueprintEditor","AudioEditor","KismetWidgets",
+                    "MaterialEditor","BlueprintGraph","AnimationBlueprintEditor","AudioEditor","KismetWidgets"
                     //"PropertyEditor","AppFramework","NiagaraEditor",
 					// ... add private dependencies that you statically link with here ...
 				}
                 );
+#if UE_4_17_OR_LATER
+			PrivateDependencyModuleNames.Add("ApplicationCore");
+#endif
 
             //some classes is not exported from engine, so when build with release engine it can not find the implementation.
             if (File.Exists(enginePath + "Source/Editor/GraphEditor/Private/DragConnection.cpp"))
             {
+#if UE_4_17_OR_LATER
                 PublicDefinitions.Add("NGA_WITH_ENGINE_CPP");
+#else
+                Definitions.Add("NGA_WITH_ENGINE_CPP");
+#endif
             }
             else
             {
-                Log.TraceInformation("one or more engine cpp file not found, is it release build of ue4?");
-                Log.TraceInformation("source file added from plugin dir");
+                Log.TraceInformation("one or more engine cpp files not found.");
+                Log.TraceInformation("will use pre-copied source files inside plugin source folder.");
+				Log.TraceInformation("turn on \"download source code\" option when installing engine if problem occured.");
             }
 
             DynamicallyLoadedModuleNames.AddRange(

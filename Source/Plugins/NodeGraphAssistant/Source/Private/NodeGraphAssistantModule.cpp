@@ -1,4 +1,4 @@
-// Copyright 2018 yangxiangyun
+// Copyright 2019 yangxiangyun
 // All Rights Reserved
 
 #include "NodeGraphAssistantModule.h"
@@ -10,6 +10,7 @@
 #include "NodeGraphAssistantConfig.h"
 
 #include "PropertyEditorModule.h"
+
 
 #include "Version.h"
 
@@ -57,6 +58,8 @@ void NodeGraphAssistantModule::StartupModule()
 			}
 		}
 	}
+
+	
 }
 
 
