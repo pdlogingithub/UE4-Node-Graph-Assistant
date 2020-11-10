@@ -3,6 +3,12 @@
 
 #include "NGASoundCueConnectionDrawingPolicy.h"
 
+#ifdef NGA_WITH_ENGINE_CPP
+#include "SoundCueGraphConnectionDrawingPolicy.cpp"
+#else
+#include "../EngineCppFiles/SoundCueGraphConnectionDrawingPolicy.cpp"
+#endif
+
 
 void FNGASoundCueGraphConnectionDrawingPolicy::DrawPreviewConnector(const FGeometry& PinGeometry, const FVector2D& StartPoint, const FVector2D& EndPoint, UEdGraphPin* Pin)
 {

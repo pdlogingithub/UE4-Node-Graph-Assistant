@@ -5,12 +5,7 @@
 
 #include "CoreMinimal.h"
 #include "SoundCueGraph/SoundCueGraphSchema.h"
-
-#ifdef NGA_WITH_ENGINE_CPP
-	#include "SoundCueGraphConnectionDrawingPolicy.cpp"
-#else
-	#include "../EngineCppFiles/SoundCueGraphConnectionDrawingPolicy.cpp"
-#endif
+#include "SoundCueGraphConnectionDrawingPolicy.h"
 
 #include "NGAGraphConnectionDrawingPolicyCommon.h"
 

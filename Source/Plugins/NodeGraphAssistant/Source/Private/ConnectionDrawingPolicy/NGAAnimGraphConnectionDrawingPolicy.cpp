@@ -3,6 +3,12 @@
 
 #include "NGAAnimGraphConnectionDrawingPolicy.h"
 
+#ifdef NGA_WITH_ENGINE_CPP
+#include "AnimGraphConnectionDrawingPolicy.cpp"
+#else
+#include "../EngineCppFiles/AnimGraphConnectionDrawingPolicy.cpp"
+#endif
+
 
 void FNGAAnimGraphConnectionDrawingPolicy::DrawPreviewConnector(const FGeometry& PinGeometry, const FVector2D& StartPoint, const FVector2D& EndPoint, UEdGraphPin* Pin)
 {
