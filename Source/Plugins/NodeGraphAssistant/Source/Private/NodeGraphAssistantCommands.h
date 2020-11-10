@@ -40,7 +40,7 @@ public:
 
 #define LOCTEXT_NAMESPACE "FNodeGraphAssistantCommands"
 
-void FNodeGraphAssistantCommands::RegisterCommands()
+inline void FNodeGraphAssistantCommands::RegisterCommands()
 {
 	UI_COMMAND(RearrangeNode, "Rearrange Nodes", "Rearrange Nodes into grid structure", EUserInterfaceActionType::Button, FInputChord(EKeys::R, false, false, true, false));
 	UI_COMMAND(BypassNodes, "Bypass Nodes", "Disconnect selected nodes from outside connections while maintain connetion flow,delete selected nodes if fully bypassed.", EUserInterfaceActionType::Button, FInputChord(EKeys::X, false, false, true, false));
