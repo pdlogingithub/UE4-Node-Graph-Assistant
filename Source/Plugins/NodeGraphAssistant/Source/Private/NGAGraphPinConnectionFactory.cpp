@@ -20,6 +20,7 @@
 #include "EngineCppFiles/SGraphNodeAnimTransition.cpp"
 #endif
 
+#include "AnimationGraphSchema.h"
 #include "Version.h"
 
 
