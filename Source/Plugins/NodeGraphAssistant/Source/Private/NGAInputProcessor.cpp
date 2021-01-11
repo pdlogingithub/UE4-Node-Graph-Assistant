@@ -409,7 +409,7 @@ void NGAInputProcessor::CancelDraggingReset(int32 UserIndex)
 		slateApp.CancelDragDrop();
 		LocalDragDropContent->OnDrop(true, FPointerEvent());
 	}
-	slateApp.ReleaseMouseCaptureForUser(UserIndex);
+	slateApp.ReleaseAllPointerCapture(UserIndex);
 	slateApp.GetPlatformApplication()->SetCapture(nullptr);
 	if (slateApp.GetPlatformCursor().IsValid())
 	{
@@ -704,7 +704,7 @@ FNGAEventReply NGAInputProcessor::TryProcessAsEndDragNPanEvent(FSlateApplication
 		{
 			if (!Ctx.IsClickGesture)
 			{
-				SlateApp.ReleaseMouseCaptureForUser(MouseEvent.GetUserIndex());
+				SlateApp.ReleaseAllPointerCapture(MouseEvent.GetUserIndex());
 				if (SlateApp.GetPlatformCursor().IsValid())
 				{
 					SlateApp.GetPlatformCursor()->Show(true);
@@ -836,7 +836,7 @@ FNGAEventReply NGAInputProcessor::TryProcessAsMultiConnectEvent(FSlateApplicatio
 				if (Ctx.GraphPin.IsValid())
 				{
 					Ctx.GraphPin->OnDrop(Ctx.PinGeometry, FDragDropEvent(MouseEvent, dragConnection));
-					SlateApp.ReleaseMouseCaptureForUser(MouseEvent.GetUserIndex());
+					SlateApp.ReleaseAllPointerCapture(MouseEvent.GetUserIndex());
 					return FNGAEventReply::BlockSlateInput();
 				}
 			}
@@ -1067,7 +1067,7 @@ FNGAEventReply NGAInputProcessor::TryProcessAsSingleHighlightEvent(FSlateApplica
 					}
 
 					//click on wire will create mouse capture,causing graph pin to be not clickable at first click,so release capture.
-					SlateApp.ReleaseMouseCaptureForUser(MouseEvent.GetUserIndex());
+					SlateApp.ReleaseAllPointerCapture(MouseEvent.GetUserIndex());
 					SlateApp.GetPlatformApplication()->SetCapture(nullptr);
 					return FNGAEventReply::BlockSlateInput();
 				}
@@ -1227,7 +1227,7 @@ FNGAEventReply NGAInputProcessor::TryProcessAsEndCutOffWireEvent(FSlateApplicati
 			HasBegunCuttingWire = false;
 
 			MyPinFactory->PayLoadData->CursorDeltaSquared = 0;
-			SlateApp.ReleaseMouseCaptureForUser(MouseEvent.GetUserIndex());
+			SlateApp.ReleaseAllPointerCapture(MouseEvent.GetUserIndex());
 			SlateApp.GetPlatformApplication()->SetCapture(nullptr);
 
 			if (GEditor && GEditor->Trans && !GEditor->bIsSimulatingInEditor)
@@ -1511,7 +1511,7 @@ FNGAEventReply NGAInputProcessor::TryProcessAsCreateNodeOnWireEvent(FSlateApplic
 			}, tryTimes);
 			TickEventListener.Add(deferredDele);
 
-			SlateApp.ReleaseMouseCaptureForUser(MouseEvent.GetUserIndex());
+			SlateApp.ReleaseAllPointerCapture(MouseEvent.GetUserIndex());
 			SlateApp.GetPlatformApplication()->SetCapture(nullptr);
 
 			return FNGAEventReply::BlockSlateInput();
