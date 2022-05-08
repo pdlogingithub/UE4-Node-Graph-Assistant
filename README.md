@@ -3,6 +3,11 @@
 Marketplace page: https://www.unrealengine.com/marketplace/node-graph-assistant  
 Forum support page: https://forums.unrealengine.com/unreal-engine/marketplace/1435240-node-graph-assistant  
 
+1.8 changelog  
+  formal ue5 support.  
+  select node stream feature now use a cutoff distance to not select nodes that are connected through long wire,distance can be tweaked in editor settings.  
+  select down stream nodes now also select up-stream nodes of down stream nodes to better fit to regular use case,can be disable from editor settings.  
+
 中文说明：https://github.com/pdlogingithub/UE4-Node-Graph-Assistant/blob/master/Doc/README_ch.md  
 
 1. Left click multi-connect: Click on pin to start free panning,zooming and multi-connecting.  
