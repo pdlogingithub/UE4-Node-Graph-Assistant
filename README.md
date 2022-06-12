@@ -8,6 +8,10 @@ formal ue5 support.
 select linked node stream feature now use a cutoff distance to not select nodes that are connected through long wire,distance can be tweaked in editor settings.  
 select linked down stream nodes now also select up-stream nodes of down stream nodes to better fit to regular use case,can be disable from editor settings. 
 
+**1.8.1 changelog**  
+fix duplicate nodes with inputs not working on ue5
+
+
 1. Left click multi-connect: Click on pin to start free panning,zooming and multi-connecting.  
 ![2](Resource/1.4/click_pan_multi-connect.gif)  
 
